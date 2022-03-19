@@ -1,0 +1,27 @@
+{
+  "name": "cli-core-vault-extension",
+  "version": "0.1.0",
+  "description": "Plain and secure storage extension for the @giancarl021/cli-core npm package",
+  "main": "index.js",
+  "repository": "https://github.com/Giancarl021/cli-core-vault-extension.git",
+  "author": "Giancarlo Fontela da Luz <gian.f.luz@hotmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "test": "node test.spec.js",
+    "generate-types": "npx tsc index.js --declaration --emitDeclarationOnly --allowJs"
+  },
+  "dependencies": {
+    "@giancarl021/locate": "^0.1.4",
+    "keytar": "^7.9.0",
+    "object-path": "^0.11.8"
+  },
+  "devDependencies": {
+    "typescript": "^4.6.2"
+  },
+  "keywords": [
+    "cli",
+    "terminal",
+    "extension",
+    "cli-core"
+  ]
+}
