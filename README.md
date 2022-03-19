@@ -26,12 +26,21 @@ const cliCore = require('@giancarl021/cli-core');
 const CliCoreVaultExtension = require('@giancarl021/cli-core-vault-extension');
 
 const runner = cliCore(appName, {
-    extensions: [ CliCoreVaultExtension() ],
+    extensions: [ CliCoreVaultExtension(options /* optional */) ],
     ...options
 });
 ```
 
 This will make the extension methods available on each command bound to this runner.
+
+The extension have optional options with the following shape:
+
+```javascript
+const options = {
+    baseData: {} // The initial state of the stored data
+    dataPath: 'data/extensions/vault/data.json' // The path to the data file, relative paths will be resolved from the project root
+};
+```
 
 ### Using the methods on commands
 
