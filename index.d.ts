@@ -30,6 +30,7 @@ type RemoveSecretCallback = (this: VaultCallbackInternal, key: string) => Promis
 type SetDataCallback = (this: VaultCallbackInternal, key: string, value: any) => void;
 type GetDataCallback = (this: VaultCallbackInternal, key: string) => any;
 type RemoveDataCallback = (this: VaultCallbackInternal, key: string) => void;
+type CompatibilityFunction = (this: VaultCallbackInternal,...args: any[]) => Promise<any> | any;
 
 interface VaultCallbackInternal {
     context?: any;
@@ -44,6 +45,7 @@ interface VaultExtensionCallbacks {
     setData: SetDataCallback;
     getData: GetDataCallback;
     removeData: RemoveDataCallback;
+    [callbackName: string]: CompatibilityFunction;
 }
 interface VaultExtensionOptions {
     dataPath?: string;
@@ -54,6 +56,5 @@ interface VaultExtension {
     name: string;
     builder: VaultExtensionBuilder;
 }
-
 
 declare function VaultExtension(options?: VaultExtensionOptions): VaultExtension;
