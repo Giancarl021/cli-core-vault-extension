@@ -1,6 +1,6 @@
 {
   "name": "@giancarl021/cli-core-vault-extension",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Plain and secure storage extension for the @giancarl021/cli-core npm package",
   "main": "index.js",
   "repository": "https://github.com/Giancarl021/cli-core-vault-extension.git",
