@@ -1,3 +1,3 @@
 export interface VaultExtensionSchema {}
 
-export interface VaultExtensionTempSchema {};
+export interface VaultExtensionTempSchema {}

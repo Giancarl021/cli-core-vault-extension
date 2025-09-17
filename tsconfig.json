@@ -13,5 +13,5 @@
         "forceConsistentCasingInFileNames": true
     },
     "exclude": ["node_modules", "lib"],
-    "include": ["index.ts", "tests/**/*.ts", "src/**/*.ts"]
+    "include": ["index.ts", "schemaless.ts", "tests/**/*.ts", "src/**/*.ts", "tests/__mocks__/fs.js", "tests/__mocks__/promises/fs.js"]
 }

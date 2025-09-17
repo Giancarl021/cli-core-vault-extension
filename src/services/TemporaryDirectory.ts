@@ -1,6 +1,6 @@
 import { resolve } from 'path';
-import constants from '../util/constants';
-import hash from '../util/hash';
+import constants from '../util/constants.js';
+import hash from '../util/hash.js';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 
 /**

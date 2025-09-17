@@ -1,6 +1,8 @@
 import { homedir, tmpdir } from 'os';
-import type VaultExtensionOptions from '../interfaces/VaultExtensionOptions';
 
+/**
+ * Application constants.
+ */
 export default {
     temp: {
         root: tmpdir(),

@@ -5,11 +5,13 @@ Plain and secure storage extension for the @giancarl021/cli-core npm package
 ## Installation
 
 npm:
+
 ```bash
 npm install @giancarl021/cli-core-vault-extension
 ```
 
 Yarn:
+
 ```bash
 yarn add @giancarl021/cli-core-vault-extension
 ```
@@ -17,6 +19,7 @@ yarn add @giancarl021/cli-core-vault-extension
 ## Usage
 
 To use this extension, you first need the [`@giancarl021/cli-core` npm package](https://www.npmjs.com/package/@giancarl021/cli-core) installed.
+
 ### Applying the extension
 
 To apply the extension to your cli-core runner, first import the module:
@@ -26,7 +29,7 @@ const cliCore = require('@giancarl021/cli-core');
 const CliCoreVaultExtension = require('@giancarl021/cli-core-vault-extension');
 
 const runner = cliCore(appName, {
-    extensions: [ CliCoreVaultExtension(options /* optional */) ],
+    extensions: [CliCoreVaultExtension(options /* optional */)],
     ...options
 });
 ```
@@ -61,7 +64,7 @@ const myCommand = function (args, flags) {
     this.extensions.vault.setSecret('myKey', 'myValue');
     // Remove a secret
     this.extensions.vault.removeSecret('myKey');
-}
+};
 ```
 
 ## Tests
@@ -69,12 +72,14 @@ const myCommand = function (args, flags) {
 If you want to test the library, you can run the tests by running the following commands on the root of the project:
 
 npm:
+
 ```bash
 npm install
 npm test
 ```
 
 Yarn:
+
 ```bash
 yarn
 yarn test

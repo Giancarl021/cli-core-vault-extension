@@ -1,5 +1,5 @@
-import { getProperty, setProperty, deleteProperty } from 'dot-prop';
-import type StorageEngine from '../interfaces/StorageEngine';
+import { getProperty, setProperty, deleteProperty, deepKeys } from 'dot-prop';
+import type StorageEngine from '../interfaces/StorageEngine.js';
 
 /**
  * Join two string literal types with a dot.
@@ -39,8 +39,9 @@ type PathValue<T, P extends string> = P extends `${infer K}.${infer Rest}`
 /**
  * JSON object storage service instance.
  */
-export type ObjectStorageInstance<Schema extends object> =
-    ReturnType<typeof ObjectStorage<Schema>>;
+export type ObjectStorageInstance<Schema extends object> = ReturnType<
+    typeof ObjectStorage<Schema>
+>;
 
 /**
  * JSON object storage service.
@@ -49,9 +50,9 @@ export type ObjectStorageInstance<Schema extends object> =
  * @param storage The underlying storage engine to use.
  * @returns
  */
-export default function ObjectStorage<
-    Schema extends object
->(storage: StorageEngine<Schema>) {
+export default function ObjectStorage<Schema extends object>(
+    storage: StorageEngine<Schema>
+) {
     /**
      * Set a property (including nested) of the object according to the Schema.
      *
@@ -65,11 +66,7 @@ export default function ObjectStorage<
         prop: P,
         value: PathValue<Schema, P>
     ) {
-        const data = setProperty(
-            (await storage.read()) || {},
-            String(prop),
-            value
-        );
+        const data = setProperty(await storage.read(), String(prop), value);
         await storage.write(data);
     }
 
@@ -94,7 +91,7 @@ export default function ObjectStorage<
         defaultValue?: PathValue<Schema, P>
     ): Promise<PathValue<Schema, P> | undefined> {
         const result = getProperty(
-            (await storage.read()) || {},
+            await storage.read(),
             String(prop),
             defaultValue
         );
@@ -110,9 +107,19 @@ export default function ObjectStorage<
      * @returns A promise that resolves when the property has been removed.
      */
     async function remove<P extends Paths<Schema>>(prop: P) {
-        const data = (await storage.read()) || {};
+        const data = await storage.read();
         deleteProperty(data, String(prop));
         await storage.write(data);
+    }
+
+    /**
+     * List all keys (including nested) in the stored object.
+     *
+     * @returns A promise that resolves to an array of all keys in the object.
+     */
+    async function listKeys(): Promise<string[]> {
+        const data = await storage.read();
+        return deepKeys(data);
     }
 
     return {
@@ -144,6 +151,12 @@ export default function ObjectStorage<
          * @param prop The property path to remove.
          * @returns A promise that resolves when the property has been removed.
          */
-        remove
+        remove,
+        /**
+         * List all keys (including nested) in the stored object.
+         *
+         * @returns A promise that resolves to an array of all keys in the object.
+         */
+        listKeys
     };
 }

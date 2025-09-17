@@ -1,21 +1,29 @@
-import type { CliCoreExtension } from '@giancarl021/cli-core';
-import type VaultExtensionAddons from './src/interfaces/VaultExtensionAddons';
-import type VaultExtensionOptions from './src/interfaces/VaultExtensionOptions';
-import constants from './src/util/constants';
-import FileStorage from './src/services/FileStorage';
-import StorageEngine from './src/interfaces/StorageEngine';
-import ObjectStorage from './src/services/ObjectStorage';
-import SecretStorage from './src/services/SecretStorage';
+import constants from './src/util/constants.js';
+import FileStorage, { FileStorageFactory } from './src/services/FileStorage.js';
+import StorageEngine from './src/interfaces/StorageEngine.js';
+import ObjectStorage from './src/services/ObjectStorage.js';
+import SecretStorage from './src/services/SecretStorage.js';
+import MemoryStorage, {
+    MemoryStorageFactory
+} from './src/services/MemoryStorage.js';
+import assertDir from './src/util/assertDir.js';
 import TemporaryDirectory, {
     type TemporaryDirectoryInstance
-} from './src/services/TemporaryDirectory';
+} from './src/services/TemporaryDirectory.js';
+
+import type { CliCoreExtension } from '@giancarl021/cli-core';
+import type VaultExtensionAddons from './src/interfaces/VaultExtensionAddons.js';
+import type VaultExtensionOptions from './src/interfaces/VaultExtensionOptions.js';
 import type {
     VaultExtensionSchema,
     VaultExtensionTempSchema
-} from './src/interfaces/VaultExtensionSchema';
+} from './src/interfaces/VaultExtensionSchema.js';
+import { dirname } from 'path';
 
 declare module '@giancarl021/cli-core' {
-    export interface CliCoreCommandAddons extends VaultExtensionAddons {}
+    export interface CliCoreCommandAddons {
+        vault: VaultExtensionAddons;
+    }
 }
 
 interface Context {
@@ -47,8 +55,7 @@ export default function VaultExtension(
             tempPath,
             destroyTempOnExit: options.destroyTempOnExit ?? false,
             storageEngine:
-                options.storageEngine ??
-                (dataPath => FileStorage(dataPath, initialData))
+                options.storageEngine ?? FileStorageFactory(initialData)
         };
     }
 
@@ -60,6 +67,12 @@ export default function VaultExtension(
 
             logger.debug(
                 `Temporary directory created at ${context.tempDir.getRootPath()} with default workspace at ${context.tempDir.getWorkspacePath()}`
+            );
+
+            assertDir(dirname(context.options.dataPath));
+
+            logger.debug(
+                `Ensured data directory exists at ${context.options.dataPath}`
             );
 
             const objectStorage = ObjectStorage(
@@ -107,6 +120,8 @@ export default function VaultExtension(
         }
     };
 }
+
+export { MemoryStorage, MemoryStorageFactory, FileStorage, FileStorageFactory };
 
 export type {
     StorageEngine,

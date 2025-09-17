@@ -1,6 +1,8 @@
-import type StorageEngine from './StorageEngine';
+import type StorageEngine from './StorageEngine.js';
 
-export default interface VaultExtensionOptions<Schema extends object = Record<string, any>> {
+export default interface VaultExtensionOptions<
+    Schema extends object = Record<string, any>
+> {
     storageEngine: (path: string) => StorageEngine<Schema>;
     initialData?: Schema;
     destroyTempOnExit: boolean;

@@ -10,12 +10,12 @@ export default interface StorageEngine<Schema extends object> {
      * @param value - The value to be written to the storage.
      * @returns A promise that resolves when the write operation is complete.
      */
-    write<LocalSchema extends object = Schema>(value: LocalSchema): Promise<void>;
+    write(value: Schema): Promise<void>;
     /**
      * Reads the value from the storage.
      * @returns A promise that resolves with the read value.
      */
-    read<LocalSchema extends object = Schema>(): Promise<LocalSchema>;
+    read(): Promise<Schema>;
     /**
      * Removes the value from the storage.
      * @returns A promise that resolves when the remove operation is complete.
