@@ -139,11 +139,8 @@ describe('[UNIT] services/FileStorage', () => {
 
 describe('[UNIT] services/FileStorageFactory', () => {
     test('Should create storage instances with the factory', async () => {
-        const factory = FileStorageFactory<{ foo: string; bar: number }>({
-            foo: 'default',
-            bar: 0
-        });
-        const storage = factory('/data.json');
+        const factory = FileStorageFactory<{ foo: string; bar: number }>();
+        const storage = factory('/data.json', { foo: 'default', bar: 0 });
 
         const initialData = await storage.read();
         expect(initialData).toEqual({ foo: 'default', bar: 0 });
@@ -154,7 +151,7 @@ describe('[UNIT] services/FileStorageFactory', () => {
     });
 
     test('Should create multiple independent storage instances', async () => {
-        const factory = FileStorageFactory<{ value: number }>({ value: 0 });
+        const factory = FileStorageFactory<{ value: number }>();
         const storageA = factory('/data1.json');
         const storageB = factory('/data2.json');
 
@@ -169,10 +166,8 @@ describe('[UNIT] services/FileStorageFactory', () => {
     });
 
     test('Should handle initial data correctly', async () => {
-        const factory = FileStorageFactory<{ name: string }>({
-            name: 'initial'
-        });
-        const storage = factory('/data.json');
+        const factory = FileStorageFactory<{ name: string }>();
+        const storage = factory('/data.json', { name: 'initial' });
 
         const data = await storage.read();
         expect(data).toEqual({ name: 'initial' });

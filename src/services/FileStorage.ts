@@ -7,19 +7,18 @@ import type StorageEngine from '../interfaces/StorageEngine.js';
  * Provides a factory function to create a file-based storage engine for storing and retrieving JSON data.
  *
  * @template Schema - The type of the data schema to be stored.
- * @param initialData - Optional initial data to populate the file if it does not exist.
- * @returns A factory function that takes a data path and returns a storage engine.
+ * @returns A factory function that takes a data path and initial data and returns a storage engine.
  */
-export function FileStorageFactory<Schema extends object>(
-    initialData?: Schema
-) {
+export function FileStorageFactory<Schema extends object>() {
     /**
      * Creates a file-based storage engine for the specified data path.
      *
      * @param dataPath - The absolute path to the file where data will be stored.
+     * @param initialData - Optional initial data to populate the file if it does not exist.
      * @returns A storage engine with methods to write, read, and remove data.
      */
-    return (dataPath: string) => FileStorage(dataPath, initialData);
+    return (dataPath: string, initialData?: Schema) =>
+        FileStorage(dataPath, initialData);
 }
 
 /**

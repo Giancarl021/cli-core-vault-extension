@@ -4,19 +4,18 @@ import type StorageEngine from '../interfaces/StorageEngine.js';
  * Provides a factory function to create an in-memory storage engine for storing and retrieving JSON data.
  * This is primarily useful for testing or temporary data storage during runtime.
  * @template Schema - The type of the data schema to be stored.
- * @param initialData - Optional initial data to populate the memory store.
- * @returns A factory function that takes a data path and returns a storage engine.
+ * @returns A factory function that takes a data path and initial data and returns a storage engine.
  */
-export function MemoryStorageFactory<Schema extends object>(
-    initialData?: Schema
-) {
+export function MemoryStorageFactory<Schema extends object>() {
     /**
      * Creates an in-memory storage engine for the specified data path.
      *
      * @param dataPath - The key in the in-memory store where data will be stored.
+     * @param initialData - Optional initial data to populate the store if it does not exist.
      * @returns A storage engine with methods to write, read, and remove data.
      */
-    return (dataPath: string) => MemoryStorage(dataPath, initialData);
+    return (dataPath: string, initialData?: Schema) =>
+        MemoryStorage(dataPath, initialData);
 }
 
 /**
@@ -44,9 +43,7 @@ export default function MemoryStorage<Schema extends object>(
      * @param value - The data to be stored.
      * @returns A promise that resolves when the data has been written.
      */
-    async function write(
-        value: Schema
-    ): Promise<void> {
+    async function write(value: Schema): Promise<void> {
         data[path] = structuredClone(value) as unknown as Schema;
     }
 

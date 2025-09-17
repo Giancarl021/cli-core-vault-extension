@@ -48,14 +48,15 @@ export default function VaultExtension(
             options.tempPath ?? `${constants.temp.root}/.${appName}`;
 
         const initialData = options.initialData ?? {};
+        const tempInitialData = options.tempInitialData ?? {};
 
         return {
             initialData,
+            tempInitialData,
             dataPath,
             tempPath,
             destroyTempOnExit: options.destroyTempOnExit ?? false,
-            storageEngine:
-                options.storageEngine ?? FileStorageFactory(initialData)
+            storageEngine: options.storageEngine ?? FileStorageFactory()
         };
     }
 
@@ -76,7 +77,10 @@ export default function VaultExtension(
             );
 
             const objectStorage = ObjectStorage(
-                context.options.storageEngine(context.options.dataPath)
+                context.options.storageEngine(
+                    context.options.dataPath,
+                    context.options.initialData
+                )
             );
 
             logger.debug(
@@ -85,7 +89,8 @@ export default function VaultExtension(
 
             const tempObjectStorage = ObjectStorage(
                 context.options.storageEngine(
-                    context.tempDir.getPath('data.json')
+                    context.tempDir.getPath('data.json'),
+                    context.options.tempInitialData
                 )
             );
 

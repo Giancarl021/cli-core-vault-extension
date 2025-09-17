@@ -115,11 +115,11 @@ describe('[UNIT] services/MemoryStorage', () => {
 
 describe('[UNIT] services/MemoryStorageFactory', () => {
     test('Should create storage instances with the factory', async () => {
-        const factory = MemoryStorageFactory<{ foo: string; bar: number }>({
+        const factory = MemoryStorageFactory<{ foo: string; bar: number }>();
+        const storage = factory('factoryTestPath', {
             foo: 'default',
             bar: 0
         });
-        const storage = factory('factoryTestPath');
 
         const initialData = await storage.read();
         expect(initialData).toEqual({ foo: 'default', bar: 0 });
@@ -130,9 +130,9 @@ describe('[UNIT] services/MemoryStorageFactory', () => {
     });
 
     test('Should create multiple independent storage instances', async () => {
-        const factory = MemoryStorageFactory<{ value: number }>({ value: 0 });
-        const storageA = factory('pathA');
-        const storageB = factory('pathB');
+        const factory = MemoryStorageFactory<{ value: number }>();
+        const storageA = factory('pathA', { value: 0 });
+        const storageB = factory('pathB', { value: 0 });
 
         await storageA.write({ value: 10 });
         await storageB.write({ value: 20 });
@@ -145,10 +145,10 @@ describe('[UNIT] services/MemoryStorageFactory', () => {
     });
 
     test('Should handle initial data correctly', async () => {
-        const factory = MemoryStorageFactory<{ name: string }>({
+        const factory = MemoryStorageFactory<{ name: string }>();
+        const storage = factory('initialDataPath', {
             name: 'initial'
         });
-        const storage = factory('initialDataPath');
 
         const data = await storage.read();
         expect(data).toEqual({ name: 'initial' });
