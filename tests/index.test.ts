@@ -283,8 +283,6 @@ describe('[UNIT] index', () => {
             } as any
         }) as unknown as VaultExtensionAddons;
 
-        console.log(vault.data.get('key'));
-
         await expect(vault.data.get('key')).resolves.toBe('value');
         await expect(vault.data.get('nonExistentKey')).resolves.toBeUndefined();
         await expect(vault.data.listKeys()).resolves.toEqual(['key']);
