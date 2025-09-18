@@ -20,7 +20,7 @@ export interface VaultExtensionSchema {}
 /**
  * This interface defines the schema for temporary data storage in the Vault Extension.
  * It can be extended in the host application to define the structure of temporary data.
- * 
+ *
  * @example
  * ```ts
  * // Extending the VaultExtensionTempSchema in the host application

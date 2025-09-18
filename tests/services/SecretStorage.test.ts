@@ -27,15 +27,15 @@ jest.unstable_mockModule('@napi-rs/keyring', () => ({
     }
 }));
 
-const { default: SecretStorage } = await import('../../src/services/SecretStorage.js');
+const { default: SecretStorage } = await import(
+    '../../src/services/SecretStorage.js'
+);
 
 afterEach(() => {
     for (const key in store) {
         delete store[key];
     }
 });
-
-
 
 describe('[UNIT] services/SecretStorage', () => {
     test('Should set, get, and remove a secret', async () => {

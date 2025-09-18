@@ -6,7 +6,9 @@ import hash from '../../src/util/hash.js';
 jest.unstable_mockModule('fs', () => memfs);
 jest.unstable_mockModule('fs/promises', () => memfs.promises);
 
-const { default: TemporaryDirectory } = await import('../../src/services/TemporaryDirectory.js');
+const { default: TemporaryDirectory } = await import(
+    '../../src/services/TemporaryDirectory.js'
+);
 
 afterEach(() => {
     if (memfs.existsSync('/tmp'))
@@ -34,7 +36,9 @@ describe('[UNIT] services/TemporaryDirectory', () => {
         const tempDir = TemporaryDirectory('/tmp', 'my-temp-dir');
         expect(tempDir.getRootPath()).toBe('/tmp');
         expect(tempDir.getWorkspacePath()).toBe('/tmp/' + hash('my-temp-dir'));
-        expect(tempDir.getPath('file.txt')).toBe('/tmp/' + hash('my-temp-dir') + '/file.txt');
+        expect(tempDir.getPath('file.txt')).toBe(
+            '/tmp/' + hash('my-temp-dir') + '/file.txt'
+        );
         expect(memfs.existsSync('/tmp')).toBe(true);
         expect(memfs.existsSync('/tmp/' + hash('my-temp-dir'))).toBe(true);
 
@@ -54,7 +58,9 @@ describe('[UNIT] services/TemporaryDirectory', () => {
         const tempDir = TemporaryDirectory('/tmp', 'existing-dir');
         expect(tempDir.getRootPath()).toBe('/tmp');
         expect(tempDir.getWorkspacePath()).toBe('/tmp/' + hash('existing-dir'));
-        expect(tempDir.getPath('file.txt')).toBe('/tmp/' + hash('existing-dir') + '/file.txt');
+        expect(tempDir.getPath('file.txt')).toBe(
+            '/tmp/' + hash('existing-dir') + '/file.txt'
+        );
 
         tempDir.destroy();
 
@@ -73,8 +79,12 @@ describe('[UNIT] services/TemporaryDirectory', () => {
 
         const newWorkspace = tempDir.createTemporaryWorkspace('new-workspace');
         expect(newWorkspace.getRootPath()).toBe('/tmp');
-        expect(newWorkspace.getWorkspacePath()).toBe('/tmp/' + hash('new-workspace'));
-        expect(newWorkspace.getPath('file.txt')).toBe('/tmp/' + hash('new-workspace') + '/file.txt');
+        expect(newWorkspace.getWorkspacePath()).toBe(
+            '/tmp/' + hash('new-workspace')
+        );
+        expect(newWorkspace.getPath('file.txt')).toBe(
+            '/tmp/' + hash('new-workspace') + '/file.txt'
+        );
         expect(memfs.existsSync('/tmp/' + hash('new-workspace'))).toBe(true);
 
         tempDir.destroy();

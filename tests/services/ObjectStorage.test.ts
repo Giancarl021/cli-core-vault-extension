@@ -57,14 +57,14 @@ describe('[UNIT] services/ObjectStorage', () => {
             }>('testPathDefault')
         );
 
-        expect(await storage.get('user.name', 'DefaultName')).toBe('DefaultName');
+        expect(await storage.get('user.name', 'DefaultName')).toBe(
+            'DefaultName'
+        );
         expect(await storage.get('user.age', 99)).toBe(99);
         expect(await storage.get('settings.theme', 'defaultTheme')).toBe(
             'defaultTheme'
         );
-        expect(
-            await storage.get('settings.notifications', true)
-        ).toBe(true);
+        expect(await storage.get('settings.notifications', true)).toBe(true);
     });
 
     test('Should list all keys correctly', async () => {
@@ -125,7 +125,10 @@ describe('[UNIT] services/ObjectStorage', () => {
     test('Should handle setting and getting entire object', async () => {
         const storage = ObjectStorage(
             MemoryStorage<{
-                profile: { username: string; details: { bio: string; website: string } };
+                profile: {
+                    username: string;
+                    details: { bio: string; website: string };
+                };
             }>('testPathEntireObject')
         );
 

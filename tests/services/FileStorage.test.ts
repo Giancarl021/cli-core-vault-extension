@@ -100,7 +100,9 @@ describe('[UNIT] services/FileStorage', () => {
     });
 
     test('Should throw on invalid path', () => {
-        expect(() => FileStorage<{ foo: string }>('relative/path.json')).toThrow();
+        expect(() =>
+            FileStorage<{ foo: string }>('relative/path.json')
+        ).toThrow();
         expect(() => FileStorage<{ foo: string }>('/')).toThrow();
         memfs.mkdirSync('/dir');
         expect(() => FileStorage<{ foo: string }>('/dir')).toThrow();
@@ -108,7 +110,10 @@ describe('[UNIT] services/FileStorage', () => {
     });
 
     test('Should work with existing file', async () => {
-        memfs.writeFileSync('/existing.json', JSON.stringify({ foo: 'exists' }));
+        memfs.writeFileSync(
+            '/existing.json',
+            JSON.stringify({ foo: 'exists' })
+        );
 
         const storage = FileStorage<{ foo: string }>('/existing.json');
         const data = await storage.read();

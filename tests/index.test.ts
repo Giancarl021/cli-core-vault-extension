@@ -71,16 +71,15 @@ describe('[UNIT] index', () => {
             interceptors: expect.any(Object)
         });
 
-        expect(
-            () =>
-                extension.buildCommandAddons!({
-                    appName: 'test-app',
-                    addons: {} as any,
-                    helpers: {} as any,
-                    logger: {
-                        debug() {}
-                    } as any
-                })
+        expect(() =>
+            extension.buildCommandAddons!({
+                appName: 'test-app',
+                addons: {} as any,
+                helpers: {} as any,
+                logger: {
+                    debug() {}
+                } as any
+            })
         ).toThrow(
             'Data path and temporary path cannot be the same: /same/path'
         );
@@ -104,8 +103,14 @@ describe('[UNIT] index', () => {
             } as any
         });
 
-        expect(memfs.existsSync(resolve(homedir(),'.test-app', 'data.json'))).toBe(true);
-        expect(memfs.existsSync(resolve(tmpdir(), '.test-app', 'default', 'data.json'))).toBe(true);
+        expect(
+            memfs.existsSync(resolve(homedir(), '.test-app', 'data.json'))
+        ).toBe(true);
+        expect(
+            memfs.existsSync(
+                resolve(tmpdir(), '.test-app', 'default', 'data.json')
+            )
+        ).toBe(true);
     });
 
     test('Should use default paths when not provided', async () => {
@@ -126,9 +131,15 @@ describe('[UNIT] index', () => {
             } as any
         }) as unknown as VaultExtensionAddons;
 
-        expect(memfs.existsSync(resolve(homedir(),'.test-app', 'data.json'))).toBe(true);
-        expect(memfs.existsSync(resolve(tmpdir(), '.test-app', 'default', 'data.json'))).toBe(true);
-        
+        expect(
+            memfs.existsSync(resolve(homedir(), '.test-app', 'data.json'))
+        ).toBe(true);
+        expect(
+            memfs.existsSync(
+                resolve(tmpdir(), '.test-app', 'default', 'data.json')
+            )
+        ).toBe(true);
+
         await vault.data.set('key', 'value');
         await expect(vault.data.get('key')).resolves.toBe('value');
         await expect(vault.data.get('nonExistentKey')).resolves.toBeUndefined();
@@ -136,7 +147,9 @@ describe('[UNIT] index', () => {
 
         await vault.temp.data.set('tempKey', 'tempValue');
         await expect(vault.temp.data.get('tempKey')).resolves.toBe('tempValue');
-        await expect(vault.temp.data.get('nonExistentTempKey')).resolves.toBeUndefined();
+        await expect(
+            vault.temp.data.get('nonExistentTempKey')
+        ).resolves.toBeUndefined();
         await expect(vault.temp.data.listKeys()).resolves.toEqual(['tempKey']);
 
         expect(vault.secrets.get('secretKey')).toBeNull();
@@ -165,7 +178,7 @@ describe('[UNIT] index', () => {
                 debug() {}
             } as any
         }) as unknown as VaultExtensionAddons;
-        
+
         await vault.data.set('key', 'value');
         await expect(vault.data.get('key')).resolves.toBe('value');
         await expect(vault.data.get('nonExistentKey')).resolves.toBeUndefined();
@@ -173,7 +186,9 @@ describe('[UNIT] index', () => {
 
         await vault.temp.data.set('tempKey', 'tempValue');
         await expect(vault.temp.data.get('tempKey')).resolves.toBe('tempValue');
-        await expect(vault.temp.data.get('nonExistentTempKey')).resolves.toBeUndefined();
+        await expect(
+            vault.temp.data.get('nonExistentTempKey')
+        ).resolves.toBeUndefined();
         await expect(vault.temp.data.listKeys()).resolves.toEqual(['tempKey']);
 
         expect(vault.secrets.get('secretKey')).toBeNull();
@@ -270,18 +285,20 @@ describe('[UNIT] index', () => {
 
         console.log(vault.data.get('key'));
 
-    await expect(vault.data.get('key')).resolves.toBe('value');
-    await expect(vault.data.get('nonExistentKey')).resolves.toBeUndefined();
-    await expect(vault.data.listKeys()).resolves.toEqual(['key']);
-    await vault.data.remove('key');
-    await expect(vault.data.get('key')).resolves.toBeUndefined();
-    await expect(vault.data.listKeys()).resolves.toEqual([]);
+        await expect(vault.data.get('key')).resolves.toBe('value');
+        await expect(vault.data.get('nonExistentKey')).resolves.toBeUndefined();
+        await expect(vault.data.listKeys()).resolves.toEqual(['key']);
+        await vault.data.remove('key');
+        await expect(vault.data.get('key')).resolves.toBeUndefined();
+        await expect(vault.data.listKeys()).resolves.toEqual([]);
 
-    await expect(vault.temp.data.get('tempKey')).resolves.toBe('tempValue');
-    await expect(vault.temp.data.get('nonExistentTempKey')).resolves.toBeUndefined();
-    await expect(vault.temp.data.listKeys()).resolves.toEqual(['tempKey']);
-    await vault.temp.data.remove('tempKey');
-    await expect(vault.temp.data.get('tempKey')).resolves.toBeUndefined();
-    await expect(vault.temp.data.listKeys()).resolves.toEqual([]);
+        await expect(vault.temp.data.get('tempKey')).resolves.toBe('tempValue');
+        await expect(
+            vault.temp.data.get('nonExistentTempKey')
+        ).resolves.toBeUndefined();
+        await expect(vault.temp.data.listKeys()).resolves.toEqual(['tempKey']);
+        await vault.temp.data.remove('tempKey');
+        await expect(vault.temp.data.get('tempKey')).resolves.toBeUndefined();
+        await expect(vault.temp.data.listKeys()).resolves.toEqual([]);
     });
 });
