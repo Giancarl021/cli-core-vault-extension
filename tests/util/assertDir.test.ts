@@ -5,7 +5,7 @@ import { fs as memfs } from 'memfs';
 jest.unstable_mockModule('fs', () => memfs);
 jest.unstable_mockModule('fs/promises', () => memfs.promises);
 
-const { default: assertDir } = await import('../../../src/util/assertDir.js');
+const { default: assertDir } = await import('../../src/util/assertDir.js');
 
 afterEach(() => {
     if (memfs.existsSync('/testDir'))

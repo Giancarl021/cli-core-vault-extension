@@ -66,7 +66,8 @@ export default function ObjectStorage<Schema extends object>(
         prop: P,
         value: PathValue<Schema, P>
     ) {
-        const data = setProperty(await storage.read(), String(prop), value);
+        const data = await storage.read();
+        setProperty(data, String(prop), value);
         await storage.write(data);
     }
 
@@ -90,11 +91,8 @@ export default function ObjectStorage<Schema extends object>(
         prop: P,
         defaultValue?: PathValue<Schema, P>
     ): Promise<PathValue<Schema, P> | undefined> {
-        const result = getProperty(
-            await storage.read(),
-            String(prop),
-            defaultValue
-        );
+        const data = await storage.read();
+        const result = getProperty(data, String(prop), defaultValue);
         return result as PathValue<Schema, P> | undefined;
     }
 

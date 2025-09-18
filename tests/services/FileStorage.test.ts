@@ -6,7 +6,7 @@ jest.unstable_mockModule('fs', () => memfs);
 jest.unstable_mockModule('fs/promises', () => memfs.promises);
 
 const { default: FileStorage, FileStorageFactory } = await import(
-    '../../../src/services/FileStorage.js'
+    '../../src/services/FileStorage.js'
 );
 
 afterEach(() => {

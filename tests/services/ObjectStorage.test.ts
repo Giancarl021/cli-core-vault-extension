@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 
-import MemoryStorage from '../../../src/services/MemoryStorage.js';
-import ObjectStorage from '../../../src/services/ObjectStorage.js';
+import MemoryStorage from '../../src/services/MemoryStorage.js';
+import ObjectStorage from '../../src/services/ObjectStorage.js';
 
 describe('[UNIT] services/ObjectStorage', () => {
     test('Should set and get nested properties correctly', async () => {

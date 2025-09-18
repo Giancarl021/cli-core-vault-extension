@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import hash from '../../../src/util/hash.js';
+import hash from '../../src/util/hash.js';
 
 describe('[UNIT] util/hash', () => {
     test('Must return a hash string', () => {

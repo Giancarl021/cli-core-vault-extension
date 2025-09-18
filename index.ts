@@ -11,7 +11,7 @@ import TemporaryDirectory, {
     type TemporaryDirectoryInstance
 } from './src/services/TemporaryDirectory.js';
 
-import type { CliCoreExtension } from '@giancarl021/cli-core';
+import { type CliCoreExtension } from '@giancarl021/cli-core';
 import type VaultExtensionAddons from './src/interfaces/VaultExtensionAddons.js';
 import type VaultExtensionOptions from './src/interfaces/VaultExtensionOptions.js';
 import type {
@@ -46,6 +46,12 @@ export default function VaultExtension(
 
         const tempPath =
             options.tempPath ?? `${constants.temp.root}/.${appName}`;
+
+        if (dataPath === tempPath) {
+            throw new Error(
+                `Data path and temporary path cannot be the same: ${dataPath}`
+            );
+        }
 
         const initialData = options.initialData ?? {};
         const tempInitialData = options.tempInitialData ?? {};

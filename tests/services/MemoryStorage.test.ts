@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 import MemoryStorage, {
     MemoryStorageFactory
-} from '../../../src/services/MemoryStorage.js';
+} from '../../src/services/MemoryStorage.js';
 
 describe('[UNIT] services/MemoryStorage', () => {
     test('Should write and read data correctly', async () => {
