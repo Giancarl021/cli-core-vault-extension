@@ -1,15 +1,9 @@
 import constants from './src/util/constants.js';
-import FileStorage, { FileStorageFactory } from './src/services/FileStorage.js';
-import StorageEngine from './src/interfaces/StorageEngine.js';
+import FileStorage, {
+    FileStorageInstance
+} from './src/services/FileStorage.js';
 import ObjectStorage from './src/services/ObjectStorage.js';
 import SecretStorage from './src/services/SecretStorage.js';
-import MemoryStorage, {
-    MemoryStorageFactory
-} from './src/services/MemoryStorage.js';
-import assertDir from './src/util/assertDir.js';
-import TemporaryDirectory, {
-    type TemporaryDirectoryInstance
-} from './src/services/TemporaryDirectory.js';
 
 import { type CliCoreExtension } from '@giancarl021/cli-core';
 import type VaultExtensionAddons from './src/interfaces/VaultExtensionAddons.js';
@@ -18,31 +12,62 @@ import type {
     VaultExtensionSchema,
     VaultExtensionTempSchema
 } from './src/interfaces/VaultExtensionSchema.js';
-import { dirname } from 'path';
 
+// Extend the CLI Core command interface to include vault extension addons.
 declare module '@giancarl021/cli-core' {
+    /**
+     * Addons provided by the vault extension.
+     */
     export interface CliCoreCommandAddons {
+        /**
+         * Addons provided by the vault extension.
+         */
         vault: VaultExtensionAddons;
     }
 }
 
+/**
+ * Context for the vault extension.
+ * It carries the options and temporary directory instance, to
+ * allow multiple parts of the extension to access them.
+ */
 interface Context {
+    /**
+     * Parsed options for the vault extension.
+     */
     options: VaultExtensionOptions;
-    tempDir: TemporaryDirectoryInstance;
+    /**
+     * Temporary directory instance for the vault extension.
+     */
+    temp: FileStorageInstance<VaultExtensionTempSchema>;
 }
 
+/**
+ * Vault extension for CLI Core.
+ * Allows easy management of persistent and temporary JSON data storage,
+ * as well as secret storage based on the OS keychain.
+ * @param options Options for configuring the vault extension.
+ * @returns A CLI Core extension object.
+ */
 export default function VaultExtension(
     options: Partial<VaultExtensionOptions> = {}
 ): CliCoreExtension {
+    /**
+     * Assert that the context is always initialized before use.
+     */
     const context: Context = {
-        tempDir: null!,
+        temp: null!,
         options: null!
     };
 
+    /**
+     * Parse and validate the options provided to the extension.
+     * @param appName The name of the application using the extension.
+     * @returns The parsed and validated options.
+     */
     function _parseOptions(appName: string): VaultExtensionOptions {
         const dataPath =
-            options.dataPath ??
-            `${constants.data.rootPrefix}/.${appName}/data.json`;
+            options.dataPath ?? `${constants.data.rootPrefix}/.${appName}`;
 
         const tempPath =
             options.tempPath ?? `${constants.temp.root}/.${appName}`;
@@ -61,81 +86,85 @@ export default function VaultExtension(
             tempInitialData,
             dataPath,
             tempPath,
-            destroyTempOnExit: options.destroyTempOnExit ?? false,
-            storageEngine: options.storageEngine ?? FileStorageFactory()
+            lazyInitialization: options.lazyInitialization ?? true,
+            destroyTempOnExit: options.destroyTempOnExit ?? false
         };
     }
 
     return {
+        /**
+         * Name of the extension.
+         */
         name: 'vault',
+        /**
+         * Build command addons for the vault extension.
+         * Initializes the storage engines and temporary directory.
+         *
+         * @param cliCoreContext Context provided by CLI Core.
+         * @returns Addons to be added to the CLI Core command.
+         */
         buildCommandAddons: ({ appName, logger }) => {
             context.options = _parseOptions(appName);
-            context.tempDir = TemporaryDirectory(context.options.tempPath);
-
-            logger.debug(
-                `Temporary directory created at ${context.tempDir.getRootPath()} with default workspace at ${context.tempDir.getWorkspacePath()}`
+            context.temp = FileStorage(
+                context.options.tempPath,
+                context.options.lazyInitialization
             );
 
-            assertDir(dirname(context.options.dataPath));
-
             logger.debug(
-                `Ensured data directory exists at ${context.options.dataPath}`
+                `Temporary directory created at ${context.temp.getRootPath()} with default workspace at ${context.temp.getWorkspacePath()}`
             );
 
-            const objectStorage = ObjectStorage(
-                context.options.storageEngine(
+            const objectStorage = ObjectStorage<VaultExtensionSchema>(
+                FileStorage(
                     context.options.dataPath,
-                    context.options.initialData
-                )
+                    context.options.lazyInitialization
+                ),
+                context.options.initialData ?? {}
             );
 
             logger.debug(
-                `Data storage initialized at ${context.options.dataPath}`
+                `Data storage initialized at ${objectStorage.storage.getWorkspacePath()}`
             );
 
-            const tempObjectStorage = ObjectStorage(
-                context.options.storageEngine(
-                    context.tempDir.getPath('data.json'),
-                    context.options.tempInitialData
-                )
+            const tempObjectStorage = ObjectStorage<VaultExtensionTempSchema>(
+                context.temp,
+                context.options.tempInitialData ?? {}
             );
 
             logger.debug(
-                `Temporary data storage initialized at ${context.tempDir.getPath(
-                    'data.json'
-                )}`
+                `Temporary data storage initialized at ${context.temp.getWorkspacePath()}`
             );
 
             const secretStorage = SecretStorage(appName);
 
             logger.debug('Secret storage initialized');
 
-            return {
+            const addons: VaultExtensionAddons = {
                 data: objectStorage,
                 secrets: secretStorage,
-                temp: {
-                    data: tempObjectStorage,
-                    directory: context.tempDir
-                }
+                temp: tempObjectStorage
             };
+
+            // To satisfy the return type
+            return addons as {};
         },
         interceptors: {
+            /**
+             * Before the CLI Core application exits, clean up the temporary directory if configured to do so.
+             */
             beforeEnding(options) {
                 if (context.options.destroyTempOnExit) {
                     options.logger.debug(
-                        `Destroying temporary directory at ${context.tempDir.getRootPath()}...`
+                        `Destroying temporary directory at ${context.temp.getRootPath()}...`
                     );
-                    context.tempDir?.destroy();
+                    context.temp?.destroy();
                 }
             }
         }
     };
 }
 
-export { MemoryStorage, MemoryStorageFactory, FileStorage, FileStorageFactory };
-
 export type {
-    StorageEngine,
     VaultExtensionOptions,
     VaultExtensionAddons,
     VaultExtensionSchema,

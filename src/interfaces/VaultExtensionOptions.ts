@@ -1,5 +1,3 @@
-import type StorageEngine from './StorageEngine.js';
-
 /**
  * Options for configuring the Vault extension.
  *
@@ -10,29 +8,17 @@ export default interface VaultExtensionOptions<
     TempSchema extends object = Record<string, any>
 > {
     /**
-     * The storage engine factory function to be used for persistent and temporary storage.
-     * If not provided, a default file-based storage engine will be used.
-     * The library provides two native storage engines: `FileStorage` and `MemoryStorage`.
+     * Whether to enable lazy initialization of the storage engine.
+     * If `true`, the storage engine will only be initialized when it is first accessed.
+     * If `false`, the storage engine will be initialized immediately when the extension is loaded.
+     * Default is `true`.
      *
-     * @param path The data path where the storage engine will store its data.
-     * @param initialData Optional initial data to populate the storage if it is empty.
-     * @returns A storage engine instance.
-     *
-     * @example
-     * ```ts
-     * // Using MemoryStorage
-     * import { MemoryStorageFactory } from '@giancarl021/cli-core-vault-extension';
-     *
-     * const options = {
-     *   storageEngine: MemoryStorageFactory()
-     * };
-     * ```
-     * };
+     * This is useful for applications that may not always need to access the storage,
+     * allowing them to avoid unnecessary setup and resource usage if the storage is never used.
+     * However, if the application always needs to access the storage, setting this to `false`
+     * can help catch configuration errors early during startup.
      */
-    storageEngine(
-        path: string,
-        initialData?: Schema | TempSchema
-    ): StorageEngine<Schema | TempSchema>;
+    lazyInitialization: boolean;
     /**
      * Initial data to populate the storage with if the storage is empty.
      */
@@ -49,7 +35,7 @@ export default interface VaultExtensionOptions<
     /**
      * The file path for persistent storage.
      * If the file or its parent directories do not exist, they will be created.
-     * Default is `<home-dir>/.<app-name>/data.json`, where `<app-name>` is the name of the application
+     * Default is `<home-dir>/.<app-name>`, where `<app-name>` is the name of the application
      * and `<home-dir>` is the user's home directory.
      */
     dataPath: string;

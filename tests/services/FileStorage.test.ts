@@ -1,79 +1,80 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 
 import { fs as memfs } from 'memfs';
+import hash from '../../src/util/hash.js';
 
 jest.unstable_mockModule('fs', () => memfs);
 jest.unstable_mockModule('fs/promises', () => memfs.promises);
 
-const { default: FileStorage, FileStorageFactory } = await import(
+const { default: FileStorage } = await import(
     '../../src/services/FileStorage.js'
 );
 
 afterEach(() => {
     const files = memfs.readdirSync('/');
     for (const file of files) {
-        memfs.unlinkSync(`/${file}`);
+        memfs.rmSync(`/${file}`, { recursive: true, force: true });
     }
 });
 
 describe('[UNIT] services/FileStorage', () => {
-    test('Should write and read data correctly', async () => {
-        const storage = FileStorage<{ foo: string; bar: number }>('/data.json');
+    test('Should write and read object correctly', async () => {
+        const storage = FileStorage<{ foo: string; bar: number }>('/', false);
 
-        await storage.write({ foo: 'hello', bar: 42 });
-        const data = await storage.read();
+        await storage.writeObject('data.json', { foo: 'hello', bar: 42 });
+        const data = await storage.readObject('data.json', { foo: '', bar: 0 });
 
         expect(data).toEqual({ foo: 'hello', bar: 42 });
     });
 
-    test('Should initialize with initial data', async () => {
+    test('Should fallback to default value on non-existent object and create object with default value', async () => {
         const initialData = { foo: 'initial', bar: 0 };
-        const storage = FileStorage<typeof initialData>(
-            '/data.json',
-            initialData
-        );
+        const storage = FileStorage<typeof initialData>('/', false);
 
-        const data = await storage.read();
+        const data = await storage.readObject('data.json', initialData);
         expect(data).toEqual(initialData);
+        expect(memfs.existsSync('/default/data.json')).toBe(true);
+        expect(
+            JSON.parse(
+                memfs.readFileSync('/default/data.json', 'utf-8') as string
+            )
+        ).toEqual(initialData);
     });
 
     test('Should remove data correctly', async () => {
-        const storage = FileStorage<{ foo: string; bar: number }>('/data.json');
+        const storage = FileStorage<{ foo: string; bar: number }>('/', false);
 
-        await storage.write({ foo: 'toBeRemoved', bar: 99 });
-        await storage.remove();
-        await storage.remove();
-        const data = await storage.read();
+        await storage.writeObject('data.json', { foo: 'toBeRemoved', bar: 99 });
+        expect(memfs.existsSync('/default/data.json')).toBe(true);
+
+        await storage.removeObject('data.json');
+        await storage.removeObject('data.json'); // Should not throw if file does not exist
+        const data = await storage.readObject('data.json', {} as any);
 
         expect(data).toEqual({});
+
+        expect(memfs.existsSync('/default/data.json')).toBe(true);
     });
 
     test('Should overwrite data on write', async () => {
-        const storage = FileStorage<{ foo: string; bar: number }>('/data.json');
+        const storage = FileStorage<{ foo: string; bar: number }>('/', false);
 
-        await storage.write({ foo: 'first', bar: 1 });
-        await storage.write({ foo: 'second', bar: 2 });
-        const data = await storage.read();
+        await storage.writeObject('data.json', { foo: 'first', bar: 1 });
+        await storage.writeObject('data.json', { foo: 'second', bar: 2 });
+        const data = await storage.readObject('data.json', {} as any);
 
         expect(data).toEqual({ foo: 'second', bar: 2 });
     });
 
-    test('Should return empty object if no data is written', async () => {
-        const storage = FileStorage<{ foo: string; bar: number }>('/data.json');
-
-        const data = await storage.read();
-        expect(data).toEqual({});
-    });
-
     test('Should handle multiple storage instances independently', async () => {
-        const storage1 = FileStorage<{ foo: string }>('/data1.json');
-        const storage2 = FileStorage<{ bar: number }>('/data2.json');
+        const storage1 = FileStorage<{ foo: string }>('/fs1', false);
+        const storage2 = FileStorage<{ bar: number }>('/fs2', false);
 
-        await storage1.write({ foo: 'data1' });
-        await storage2.write({ bar: 100 });
+        await storage1.writeObject('data.json', { foo: 'data1' });
+        await storage2.writeObject('data.json', { bar: 100 });
 
-        const data1 = await storage1.read();
-        const data2 = await storage2.read();
+        const data1 = await storage1.readObject('data.json', {} as any);
+        const data2 = await storage2.readObject('data.json', {} as any);
 
         expect(data1).toEqual({ foo: 'data1' });
         expect(data2).toEqual({ bar: 100 });
@@ -81,100 +82,227 @@ describe('[UNIT] services/FileStorage', () => {
 
     test('Should not mutate storage when outside object is changed', async () => {
         const initialData = { foo: 'immutable', bar: 10 };
-        const storage = FileStorage<typeof initialData>(
-            '/data.json',
-            initialData
-        );
+        const storage = FileStorage<typeof initialData>('/', false);
 
-        const dataBefore = await storage.read();
+        const dataBefore = await storage.readObject('data.json', initialData);
+
         dataBefore.foo = 'mutated';
         dataBefore.bar = 20;
 
-        const dataAfter = await storage.read();
+        const dataAfter = await storage.readObject('data.json', initialData);
         expect(dataAfter).toEqual(initialData);
 
         initialData.bar = 30;
 
-        const dataFinal = await storage.read();
+        const dataFinal = await storage.readObject('data.json', initialData);
         expect(dataFinal).toEqual({ foo: 'immutable', bar: 10 });
     });
 
     test('Should throw on invalid path', () => {
         expect(() =>
-            FileStorage<{ foo: string }>('relative/path.json')
+            FileStorage<{ foo: string }>('relative/path.json', false)
         ).toThrow();
-        expect(() => FileStorage<{ foo: string }>('/')).toThrow();
-        memfs.mkdirSync('/dir');
-        expect(() => FileStorage<{ foo: string }>('/dir')).toThrow();
-        memfs.rmSync('/dir', { force: true, recursive: true });
     });
 
     test('Should work with existing file', async () => {
+        memfs.mkdirSync('/default', { recursive: true });
         memfs.writeFileSync(
-            '/existing.json',
+            '/default/existing.json',
             JSON.stringify({ foo: 'exists' })
         );
 
-        const storage = FileStorage<{ foo: string }>('/existing.json');
-        const data = await storage.read();
+        const storage = FileStorage<{ foo: string }>('/', false);
+        const data = await storage.readObject('existing.json', {} as any);
 
         expect(data).toEqual({ foo: 'exists' });
     });
 
     test('Type safety: Should enforce schema on write and read', async () => {
-        const storage = FileStorage<{ name: string; age: number }>(
-            '/data.json'
-        );
+        const storage = FileStorage<{ name: string; age: number }>('/', false);
 
         // Correct type
-        await storage.write({ name: 'Alice', age: 30 });
-        const data = await storage.read();
+        await storage.writeObject('data.json', { name: 'Alice', age: 30 });
+
+        const data = await storage.readObject('data.json', {
+            name: '',
+            age: 0
+        });
         expect(data).toEqual({ name: 'Alice', age: 30 });
 
         // @ts-expect-error: Wrong type (age should be number)
-        await storage.write({ name: 'Bob', age: 'ASAS' });
+        await storage.readObject('data.json', {});
+
+        // @ts-expect-error: Wrong type (age should be number)
+        await storage.writeObject('data.json', { name: 'Bob', age: 'ASAS' });
 
         // @ts-expect-error: Missing property (age is required)
-        await storage.write({ name: 'Charlie' });
+        await storage.writeObject('data.json', { name: 'Charlie' });
 
-        // @ts-expect-error: Extra property (address is not defined in schema)
-        await storage.write({ name: 'Dave', age: 40, address: '123 St' });
-    });
-});
-
-describe('[UNIT] services/FileStorageFactory', () => {
-    test('Should create storage instances with the factory', async () => {
-        const factory = FileStorageFactory<{ foo: string; bar: number }>();
-        const storage = factory('/data.json', { foo: 'default', bar: 0 });
-
-        const initialData = await storage.read();
-        expect(initialData).toEqual({ foo: 'default', bar: 0 });
-
-        await storage.write({ foo: 'updated', bar: 42 });
-        const updatedData = await storage.read();
-        expect(updatedData).toEqual({ foo: 'updated', bar: 42 });
+        await storage.writeObject('data.json', {
+            name: 'Dave',
+            age: 40,
+            // @ts-expect-error: Extra property not in schema
+            address: '123 St'
+        });
     });
 
-    test('Should create multiple independent storage instances', async () => {
-        const factory = FileStorageFactory<{ value: number }>();
-        const storageA = factory('/data1.json');
-        const storageB = factory('/data2.json');
+    test('Should support lazy initialization', async () => {
+        expect(memfs.existsSync('/lazyInit')).toBe(false);
+        const storage = FileStorage<{ foo: string }>('/lazyInit', true);
+        expect(memfs.existsSync('/lazyInit')).toBe(false);
 
-        await storageA.write({ value: 10 });
-        await storageB.write({ value: 20 });
+        await storage.writeObject('data.json', { foo: 'initialized' });
+        expect(memfs.existsSync('/lazyInit')).toBe(true);
+        expect(memfs.existsSync('/lazyInit/default')).toBe(true);
 
-        const dataA = await storageA.read();
-        const dataB = await storageB.read();
-
-        expect(dataA).toEqual({ value: 10 });
-        expect(dataB).toEqual({ value: 20 });
+        const data = await storage.readObject('data.json', {} as any);
+        expect(data).toEqual({ foo: 'initialized' });
     });
 
-    test('Should handle initial data correctly', async () => {
-        const factory = FileStorageFactory<{ name: string }>();
-        const storage = factory('/data.json', { name: 'initial' });
+    test('Should throw on invalid path even with lazy initialization', () => {
+        expect(() =>
+            FileStorage<{ foo: string }>('relative/path.json', true)
+        ).toThrow();
+    });
 
-        const data = await storage.read();
-        expect(data).toEqual({ name: 'initial' });
+    test('Should be able to re-create structure if manually deleted', async () => {
+        const storage = FileStorage<{ foo: string }>('/noReinit', true);
+
+        await storage.writeObject('data1.json', { foo: 'first' });
+        expect(memfs.existsSync('/noReinit')).toBe(true);
+        expect(memfs.existsSync('/noReinit/default')).toBe(true);
+
+        // Manually remove the directory to simulate external deletion
+        memfs.rmdirSync('/noReinit/default', { recursive: true });
+        expect(memfs.existsSync('/noReinit/default')).toBe(false);
+
+        await expect(
+            storage.writeObject('data2.json', { foo: 'second' })
+        ).resolves.toBeUndefined();
+        expect(memfs.existsSync('/noReinit/default')).toBe(true);
+
+        await expect(
+            storage.readObject('data2.json', {} as any)
+        ).resolves.toEqual({ foo: 'second' });
+    });
+
+    test('Destroy should remove the entire root directory', async () => {
+        const storage = FileStorage<{ foo: string }>('/toBeDestroyed', false);
+        await storage.writeObject('data.json', { foo: 'temp' });
+
+        expect(memfs.existsSync('/toBeDestroyed')).toBe(true);
+        expect(memfs.existsSync('/toBeDestroyed/default')).toBe(true);
+
+        expect(memfs.existsSync('/toBeDestroyed/default/data.json')).toBe(true);
+
+        await storage.destroy();
+
+        expect(memfs.existsSync('/toBeDestroyed')).toBe(false);
+    });
+
+    test('Should return correct root and workspace paths', async () => {
+        const storage = FileStorage<{ foo: string }>('/pathTest', false);
+
+        expect(storage.getRootPath()).toBe('/pathTest');
+        expect(storage.getWorkspacePath()).toBe('/pathTest/default');
+
+        await storage.writeObject('data.json', { foo: 'test' });
+
+        expect(storage.getRootPath()).toBe('/pathTest');
+        expect(storage.getWorkspacePath()).toBe('/pathTest/default');
+        const data = await storage.readObject('data.json', {} as any);
+        expect(data).toEqual({ foo: 'test' });
+    });
+
+    test('Should return coorect workspace path based on key', async () => {
+        const storageDefault = FileStorage<{ foo: string }>('/wsTest', false);
+        const storageCustom = FileStorage<{ foo: string }>(
+            '/wsTest',
+            false,
+            'customKey'
+        );
+
+        expect(storageDefault.getWorkspacePath()).toBe('/wsTest/default');
+        expect(storageCustom.getWorkspacePath()).toBe(
+            `/wsTest/${hash('customKey')}`
+        );
+    });
+
+    test('Should handle nested paths correctly', async () => {
+        const storage = FileStorage<{ nested: { key: string } }>('/', false);
+
+        await storage.writeObject('config/settings.json', {
+            nested: { key: 'nestedValue' }
+        });
+
+        const data = await storage.readObject(
+            'config/settings.json',
+            {} as any
+        );
+        expect(data).toEqual({ nested: { key: 'nestedValue' } });
+
+        expect(memfs.existsSync('/default/config/settings.json')).toBe(true);
+    });
+
+    test('Should return relative paths correctly with getPath', async () => {
+        const storage = FileStorage<{ foo: string }>('/relPathTest', false);
+
+        expect(storage.getPath('data.json')).toBe(
+            '/relPathTest/default/data.json'
+        );
+        expect(storage.getPath('config/settings.json')).toBe(
+            '/relPathTest/default/config/settings.json'
+        );
+
+        await storage.writeObject('config/settings.json', { foo: 'bar' });
+        expect(
+            memfs.existsSync('/relPathTest/default/config/settings.json')
+        ).toBe(true);
+
+        const data = await storage.readObject(
+            'config/settings.json',
+            {} as any
+        );
+        expect(data).toEqual({ foo: 'bar' });
+    });
+
+    test('Destroy workspace should remove only the current workspace directory', async () => {
+        const storage = FileStorage<{ foo: string }>('/multiWS', false);
+        const customWorkspace = storage.createWorkspace('custom');
+
+        await storage.writeObject('data1.json', { foo: 'defaultWS' });
+        await customWorkspace.writeObject('data2.json', { foo: 'customWS' });
+
+        expect(memfs.existsSync('/multiWS/default/data1.json')).toBe(true);
+        expect(
+            memfs.existsSync('/multiWS/' + hash('custom') + '/data2.json')
+        ).toBe(true);
+
+        await customWorkspace.destroyWorkspace();
+
+        expect(memfs.existsSync('/multiWS/default/data1.json')).toBe(true);
+        expect(memfs.existsSync('/multiWS/' + hash('custom'))).toBe(false);
+
+        await storage.destroy();
+
+        expect(memfs.existsSync('/multiWS')).toBe(false);
+    });
+
+    test('Should throw if trying to create workspace with default key', () => {
+        const storage = FileStorage<{ foo: string }>('/defKeyTest', false);
+        expect(() => storage.createWorkspace('default')).toThrow();
+    });
+
+    test('Should not throw if destroying non-existent storage', async () => {
+        const storage = FileStorage<{ foo: string }>('/nonExistent', false);
+        await expect(storage.destroy()).resolves.toBeUndefined();
+        await expect(storage.destroy()).resolves.toBeUndefined();
+    });
+
+    test('Should not throw if destroying non-existent workspace', async () => {
+        const storage = FileStorage<{ foo: string }>('/nonExistentWS', false);
+        const ws = storage.createWorkspace('customWS');
+        await expect(ws.destroyWorkspace()).resolves.toBeUndefined();
+        await expect(ws.destroyWorkspace()).resolves.toBeUndefined();
     });
 });

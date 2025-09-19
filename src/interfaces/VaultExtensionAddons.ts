@@ -1,6 +1,5 @@
 import type { ObjectStorageInstance } from '../services/ObjectStorage.js';
 import type { SecretStorageInstance } from '../services/SecretStorage.js';
-import type { TemporaryDirectoryInstance } from '../services/TemporaryDirectory.js';
 import type {
     VaultExtensionSchema,
     VaultExtensionTempSchema
@@ -11,7 +10,8 @@ import type {
  */
 export default interface VaultExtensionAddons {
     /**
-     * Persistent JSON object storage.
+     * Persistent data storage, backed by a JSON file.
+     * It also exposes the underlying storage engine for specific operations with files.
      */
     data: ObjectStorageInstance<VaultExtensionSchema>;
     /**
@@ -19,16 +19,8 @@ export default interface VaultExtensionAddons {
      */
     secrets: SecretStorageInstance;
     /**
-     * Temporary storage, including a temporary JSON object storage and a temporary directory.
+     * Temporary data storage, backed by a JSON file in a temporary directory.
+     * It also exposes the underlying storage engine for specific operations with files.
      */
-    temp: {
-        /**
-         * Temporary JSON object storage.
-         */
-        data: ObjectStorageInstance<VaultExtensionTempSchema>;
-        /**
-         * Temporary directory for storing temporary files, such as caches or session data.
-         */
-        directory: TemporaryDirectoryInstance;
-    };
+    temp: ObjectStorageInstance<VaultExtensionTempSchema>;
 }

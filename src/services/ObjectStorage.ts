@@ -1,5 +1,6 @@
 import { getProperty, setProperty, deleteProperty, deepKeys } from 'dot-prop';
-import type StorageEngine from '../interfaces/StorageEngine.js';
+import type { FileStorageInstance } from './FileStorage.js';
+import constants from '../util/constants.js';
 
 /**
  * Join two string literal types with a dot.
@@ -14,13 +15,29 @@ type Join<K extends string, P extends string> = `${K}.${P}`;
  *
  * @template T The object type to generate paths for.
  */
-type Paths<T> = T extends object
-    ? {
-          [K in keyof T & string]: T[K] extends object
-              ? K | Join<K, Paths<T[K]>>
-              : K;
-      }[keyof T & string]
-    : never;
+// Tipos nativos e arrays que não devem ser recursivos
+type Primitive =
+    | string
+    | number
+    | boolean
+    | bigint
+    | symbol
+    | null
+    | undefined
+    | Date
+    | Function
+    | Array<any>;
+
+// Gera caminhos para objetos, ignorando tipos primitivos e arrays
+type ObjectPaths<T> = T extends Primitive
+    ? never
+    : {
+          [K in keyof T & string]: T[K] extends Primitive
+              ? K
+              : K | Join<K, ObjectPaths<T[K]>>;
+      }[keyof T & string];
+
+type Paths<T> = ObjectPaths<T>;
 
 /**
  * Get the type of a property (including nested) in an object type based on a dot-separated path.
@@ -48,10 +65,12 @@ export type ObjectStorageInstance<Schema extends object> = ReturnType<
  *
  * @template Schema The schema of the object to be stored.
  * @param storage The underlying storage engine to use.
- * @returns
+ * @param initialData Initial data to populate the storage with if empty.
+ * @returns An object with methods to interact with the stored object.
  */
 export default function ObjectStorage<Schema extends object>(
-    storage: StorageEngine<Schema>
+    storage: FileStorageInstance<Schema>,
+    initialData: Schema
 ) {
     /**
      * Set a property (including nested) of the object according to the Schema.
@@ -66,9 +85,12 @@ export default function ObjectStorage<Schema extends object>(
         prop: P,
         value: PathValue<Schema, P>
     ) {
-        const data = await storage.read();
+        const data = await storage.readObject(
+            constants.workspace.dataPath,
+            initialData
+        );
         setProperty(data, String(prop), value);
-        await storage.write(data);
+        await storage.writeObject(constants.workspace.dataPath, data);
     }
 
     /**
@@ -91,7 +113,10 @@ export default function ObjectStorage<Schema extends object>(
         prop: P,
         defaultValue?: PathValue<Schema, P>
     ): Promise<PathValue<Schema, P> | undefined> {
-        const data = await storage.read();
+        const data = await storage.readObject(
+            constants.workspace.dataPath,
+            initialData
+        );
         const result = getProperty(data, String(prop), defaultValue);
         return result as PathValue<Schema, P> | undefined;
     }
@@ -105,9 +130,12 @@ export default function ObjectStorage<Schema extends object>(
      * @returns A promise that resolves when the property has been removed.
      */
     async function remove<P extends Paths<Schema>>(prop: P) {
-        const data = await storage.read();
+        const data = await storage.readObject(
+            constants.workspace.dataPath,
+            initialData
+        );
         deleteProperty(data, String(prop));
-        await storage.write(data);
+        await storage.writeObject(constants.workspace.dataPath, data);
     }
 
     /**
@@ -116,7 +144,10 @@ export default function ObjectStorage<Schema extends object>(
      * @returns A promise that resolves to an array of all keys in the object.
      */
     async function listKeys(): Promise<string[]> {
-        const data = await storage.read();
+        const data = await storage.readObject(
+            constants.workspace.dataPath,
+            initialData
+        );
         return deepKeys(data);
     }
 
@@ -155,6 +186,10 @@ export default function ObjectStorage<Schema extends object>(
          *
          * @returns A promise that resolves to an array of all keys in the object.
          */
-        listKeys
+        listKeys,
+        /**
+         * The underlying storage engine used by the ObjectStorage.
+         */
+        storage
     };
 }

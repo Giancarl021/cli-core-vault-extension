@@ -1,10 +1,9 @@
 import { describe, expect, test, jest, afterEach } from '@jest/globals';
 
 import { fs as memfs } from 'memfs';
-import { MemoryStorageFactory } from '../src/services/MemoryStorage.js';
-import VaultExtensionAddons from '../src/interfaces/VaultExtensionAddons.js';
 import { homedir, tmpdir } from 'os';
 import { resolve } from 'path';
+import type VaultExtensionAddons from '../src/interfaces/VaultExtensionAddons.js';
 
 const store: Record<string, Record<string, string | null>> = {};
 
@@ -48,15 +47,11 @@ afterEach(() => {
     }
 });
 
-const { default: VaultExtension, ...services } = await import('../index.js');
+const { default: VaultExtension } = await import('../index.js');
 
 describe('[UNIT] index', () => {
     test('Should expose the correct services', () => {
         expect(VaultExtension).toEqual(expect.any(Function));
-        expect(services).toHaveProperty('FileStorage');
-        expect(services).toHaveProperty('MemoryStorage');
-        expect(services).toHaveProperty('FileStorageFactory');
-        expect(services).toHaveProperty('MemoryStorageFactory');
     });
 
     test('Should throw if dataPath and tempPath are the same when building command addons', () => {
@@ -139,45 +134,6 @@ describe('[UNIT] index', () => {
                 resolve(tmpdir(), '.test-app', 'default', 'data.json')
             )
         ).toBe(true);
-
-        await vault.data.set('key', 'value');
-        await expect(vault.data.get('key')).resolves.toBe('value');
-        await expect(vault.data.get('nonExistentKey')).resolves.toBeUndefined();
-        await expect(vault.data.listKeys()).resolves.toEqual(['key']);
-
-        await vault.temp.data.set('tempKey', 'tempValue');
-        await expect(vault.temp.data.get('tempKey')).resolves.toBe('tempValue');
-        await expect(
-            vault.temp.data.get('nonExistentTempKey')
-        ).resolves.toBeUndefined();
-        await expect(vault.temp.data.listKeys()).resolves.toEqual(['tempKey']);
-
-        expect(vault.secrets.get('secretKey')).toBeNull();
-        vault.secrets.set('secretKey', 'secretValue');
-        expect(vault.secrets.get('secretKey')).toBe('secretValue');
-        vault.secrets.remove('secretKey');
-        expect(vault.secrets.get('secretKey')).toBeNull();
-    });
-
-    test('Should work with custom storage engines', async () => {
-        const extension = VaultExtension({
-            storageEngine: MemoryStorageFactory()
-        });
-
-        expect(extension).toMatchObject({
-            name: 'vault',
-            buildCommandAddons: expect.any(Function),
-            interceptors: expect.any(Object)
-        });
-
-        const vault = extension.buildCommandAddons!({
-            appName: 'test-app',
-            addons: {} as any,
-            helpers: {} as any,
-            logger: {
-                debug() {}
-            } as any
-        }) as unknown as VaultExtensionAddons;
 
         await vault.data.set('key', 'value');
         await expect(vault.data.get('key')).resolves.toBe('value');

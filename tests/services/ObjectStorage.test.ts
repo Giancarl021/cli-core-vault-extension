@@ -1,15 +1,23 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 
-import MemoryStorage from '../../src/services/MemoryStorage.js';
+import { fs as memfs } from 'memfs';
+
+jest.unstable_mockModule('fs', () => memfs);
+jest.unstable_mockModule('fs/promises', () => memfs.promises);
+
+const { default: FileStorage } = await import(
+    '../../src/services/FileStorage.js'
+);
 import ObjectStorage from '../../src/services/ObjectStorage.js';
 
 describe('[UNIT] services/ObjectStorage', () => {
     test('Should set and get nested properties correctly', async () => {
         const storage = ObjectStorage(
-            MemoryStorage<{
+            FileStorage<{
                 user: { name: string; age: number; address: { city: string } };
                 settings: { theme: string; notifications: boolean };
-            }>('testPathNested')
+            }>('/', false),
+            {} as any
         );
 
         await storage.set('user.name', 'Alice');
@@ -27,10 +35,11 @@ describe('[UNIT] services/ObjectStorage', () => {
 
     test('Should delete properties correctly', async () => {
         const storage = ObjectStorage(
-            MemoryStorage<{
+            FileStorage<{
                 user: { name: string; age: number; address: { city: string } };
                 settings: { theme: string; notifications: boolean };
-            }>('testPathDelete')
+            }>('/', false),
+            {} as any
         );
 
         await storage.set('user.name', 'Bob');
@@ -51,10 +60,11 @@ describe('[UNIT] services/ObjectStorage', () => {
 
     test('Should return default value if property does not exist', async () => {
         const storage = ObjectStorage(
-            MemoryStorage<{
+            FileStorage<{
                 user: { name: string; age: number };
                 settings: { theme: string; notifications: boolean };
-            }>('testPathDefault')
+            }>('/', false),
+            {} as any
         );
 
         expect(await storage.get('user.name', 'DefaultName')).toBe(
@@ -69,10 +79,11 @@ describe('[UNIT] services/ObjectStorage', () => {
 
     test('Should list all keys correctly', async () => {
         const storage = ObjectStorage(
-            MemoryStorage<{
+            FileStorage<{
                 user: { name: string; age: number; address: { city: string } };
                 settings: { theme: string; notifications: boolean };
-            }>('testPathListKeys')
+            }>('/', false),
+            {} as any
         );
 
         await storage.set('user.name', 'Eve');
@@ -95,10 +106,11 @@ describe('[UNIT] services/ObjectStorage', () => {
 
     test('Should enforce schema types on set method', async () => {
         const storage = ObjectStorage(
-            MemoryStorage<{
+            FileStorage<{
                 user: { name: string; age: number };
                 settings: { theme: string; notifications: boolean };
-            }>('testPathTypeSafety')
+            }>('/', false),
+            {} as any
         );
 
         // Correct types
@@ -124,12 +136,13 @@ describe('[UNIT] services/ObjectStorage', () => {
 
     test('Should handle setting and getting entire object', async () => {
         const storage = ObjectStorage(
-            MemoryStorage<{
+            FileStorage<{
                 profile: {
                     username: string;
                     details: { bio: string; website: string };
                 };
-            }>('testPathEntireObject')
+            }>('/', false),
+            {} as any
         );
 
         await storage.set('profile', {
@@ -142,5 +155,77 @@ describe('[UNIT] services/ObjectStorage', () => {
         expect(await storage.get('profile.details.website')).toBe(
             'https://devuser.com'
         );
+    });
+
+    test('Should return undefined for non-existent keys without default value', async () => {
+        const storage = ObjectStorage(
+            FileStorage<{
+                config: { version: string; debug: boolean };
+            }>('/', false),
+            {} as any
+        );
+
+        expect(await storage.get('config.version')).toBeUndefined();
+        expect(await storage.get('config.debug')).toBeUndefined();
+        expect(await storage.get('nonExistent.key' as any)).toBeUndefined();
+    });
+
+    test('Should return initial data if provided', async () => {
+        const initialData = {
+            app: { name: 'TestApp', version: '1.0.0' },
+            user: { loggedIn: false }
+        };
+
+        const storage = ObjectStorage(
+            FileStorage<{
+                app: { name: string; version: string };
+                user: { loggedIn: boolean };
+            }>('/', false),
+            initialData as any
+        );
+
+        expect(await storage.get('app.name')).toBe('TestApp');
+        expect(await storage.get('app.version')).toBe('1.0.0');
+        expect(await storage.get('user.loggedIn')).toBe(false);
+    });
+
+    test('Should handle complex nested structures', async () => {
+        const storage = ObjectStorage(
+            FileStorage<{
+                project: {
+                    title: string;
+                    tasks: {
+                        id: number;
+                        description: string;
+                        completed: boolean;
+                    }[];
+                };
+            }>('/', false),
+            {} as any
+        );
+
+        await storage.set('project.title', 'New Project');
+        await storage.set('project.tasks', [
+            { id: 1, description: 'Task One', completed: false },
+            { id: 2, description: 'Task Two', completed: true }
+        ]);
+
+        expect(await storage.get('project.title')).toBe('New Project');
+        expect(await storage.get('project.tasks.0.description' as any)).toBe(
+            'Task One'
+        );
+        expect(await storage.get('project.tasks[1].completed' as any)).toBe(
+            true
+        );
+    });
+
+    test('Storage instance should be returned correctly', async () => {
+        const fileStorage = FileStorage<{
+            sample: { key: string };
+        }>('/', false);
+
+        const storage = ObjectStorage(fileStorage, {} as any);
+
+        expect(storage.storage).toBe(fileStorage);
     });
 });
