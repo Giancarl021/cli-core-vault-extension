@@ -14,13 +14,13 @@ export default function SecretStorage(appName: string) {
     /**
      * Get a secret value by its key.
      * @param key The key of the secret to retrieve.
-     * @returns The secret value, or null if not found.
+     * @returns The secret value, or undefined if not found.
      */
-    function get(key: string): string | null {
+    function get(key: string): string | undefined {
         const entry = new Entry(appName, key);
-        let password: string | null;
+        let password: string | undefined;
         try {
-            password = entry.getPassword();
+            password = entry.getPassword() ?? undefined;
         } catch (err) {
             const _err = err as Error;
 
@@ -73,7 +73,7 @@ export default function SecretStorage(appName: string) {
         /**
          * Get a secret value by its key.
          * @param key The key of the secret to retrieve.
-         * @returns The secret value, or null if not found.
+         * @returns The secret value, or undefined if not found.
          */
         get,
         /**

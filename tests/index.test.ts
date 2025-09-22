@@ -177,11 +177,11 @@ describe('[UNIT] index', () => {
         ).resolves.toBeUndefined();
         await expect(vault.temp.listKeys()).resolves.toEqual(['tempKey']);
 
-        expect(vault.secrets.get('secretKey')).toBeNull();
+        expect(vault.secrets.get('secretKey')).toBeUndefined();
         vault.secrets.set('secretKey', 'secretValue');
         expect(vault.secrets.get('secretKey')).toBe('secretValue');
         vault.secrets.remove('secretKey');
-        expect(vault.secrets.get('secretKey')).toBeNull();
+        expect(vault.secrets.get('secretKey')).toBeUndefined();
     });
 
     test('Should clean up temporary directory if destroyTempOnExit is true', async () => {

@@ -56,11 +56,11 @@ describe('[UNIT] services/SecretStorage', () => {
     test('Should set, get, and remove a secret', async () => {
         const secretStorage = SecretStorage('my-app');
 
-        expect(secretStorage.get('my-secret')).toBeNull();
+        expect(secretStorage.get('my-secret')).toBeUndefined();
         secretStorage.set('my-secret', 'secret-value');
         expect(secretStorage.get('my-secret')).toBe('secret-value');
         secretStorage.remove('my-secret');
-        expect(secretStorage.get('my-secret')).toBeNull();
+        expect(secretStorage.get('my-secret')).toBeUndefined();
     });
 
     test('Should handle errors when accessing the keychain', async () => {

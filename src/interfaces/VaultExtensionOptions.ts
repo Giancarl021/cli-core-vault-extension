@@ -1,14 +1,16 @@
+import type {
+    VaultExtensionSchema,
+    VaultExtensionTempSchema
+} from './VaultExtensionSchema.js';
+
 /**
  * Options for configuring the Vault extension.
  *
  * @template Schema - The type of the data schema to be stored.
  */
-export default interface VaultExtensionOptions<
-    Schema extends object = Record<string, any>,
-    TempSchema extends object = Record<string, any>
-> {
+export default interface VaultExtensionOptions {
     /**
-     * Whether to enable lazy initialization of the storage engine.
+     * Whether to enable lazy initialization of the storage engines.
      * If `true`, the storage engine will only be initialized when it is first accessed.
      * If `false`, the storage engine will be initialized immediately when the extension is loaded.
      * Default is `true`.
@@ -22,11 +24,11 @@ export default interface VaultExtensionOptions<
     /**
      * Initial data to populate the storage with if the storage is empty.
      */
-    initialData: Schema;
+    initialData: VaultExtensionSchema;
     /**
      * Initial data to populate the temporary storage with if the storage is empty.
      */
-    tempInitialData: TempSchema;
+    tempInitialData: VaultExtensionTempSchema;
     /**
      * Whether to destroy the temporary storage directory when the application exits.
      * Default is `false`.
