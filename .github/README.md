@@ -61,7 +61,22 @@ const app = CliCore({
 app.run().catch(console.error);
 ```
 
-> **Note:** If you do not have a defined schema, or is just propotyping, you can import `@giancarl021/cli-core-vault-extension/schemaless` in conjunction with the main library to use a schemaless storage. This will make both persistent and temporary storage to accept any data structure.
+If you do not have a defined schema, or is just propotyping, you can import `@giancarl021/cli-core-vault-extension/schemaless` alongside the main extension:
+
+```typescript
+import CliCore from '@giancarl021/cli-core';
+import VaultExtension from '@giancarl021/cli-core-vault-extension';
+import '@giancarl021/cli-core-vault-extension/schemaless';
+
+const app = CliCore({
+    ...options,
+    extensions: [VaultExtension()]
+});
+
+app.run().catch(console.error);
+```
+
+Once the extension is configured, you can access it inside your commands:
 
 ```typescript
 import { defineCommand } from '@giancarl021/cli-core';

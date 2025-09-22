@@ -7,6 +7,10 @@
     "author": "Giancarlo Fontela da Luz <gian.f.luz@hotmail.com>",
     "license": "MIT",
     "type": "module",
+    "exports": {
+        ".": "./lib/index.js",
+        "./schemaless": "./lib/schemaless.d.ts"
+    },
     "files": [
         "lib/**/*"
     ],
