@@ -1,5 +1,5 @@
 import { existsSync } from 'fs';
-import { readFile, unlink, writeFile, rm } from 'fs/promises';
+import { readFile, unlink, writeFile, rm, rename } from 'fs/promises';
 import { dirname, isAbsolute, resolve } from 'path';
 import constants from '../util/constants.js';
 import hash from '../util/hash.js';
@@ -59,6 +59,21 @@ export default function FileStorage<Schema extends object>(
         initialized = true;
     }
 
+    /**
+     * Atomically write data to a file by writing to a temporary file first,
+     * then renaming it to the target file. This prevents data corruption in case
+     * of a crash or interruption during the write process.
+     * @param path The absolute path to the file to write.
+     * @param data The data to write to the file.
+     */
+    async function _atomicWrite(path: string, data: string) {
+        const tempPath = `${path}.tmp`;
+
+        await writeFile(tempPath, data);
+        await rename(tempPath, path);
+    }
+
+    // If not lazy, initialize immediately
     if (!lazyInitialization) {
         _init();
     }
@@ -78,7 +93,7 @@ export default function FileStorage<Schema extends object>(
             assertDir(dirname(_path));
         }
 
-        await writeFile(_path, data);
+        await _atomicWrite(_path, data);
     }
 
     /**

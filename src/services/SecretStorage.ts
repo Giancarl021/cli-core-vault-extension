@@ -18,7 +18,18 @@ export default function SecretStorage(appName: string) {
      */
     function get(key: string): string | null {
         const entry = new Entry(appName, key);
-        return entry.getPassword();
+        let password: string | null;
+        try {
+            password = entry.getPassword();
+        } catch (err) {
+            const _err = err as Error;
+
+            throw new Error(
+                `Failed to access the system keychain. Make sure your environment supports it: ${_err.message}`
+            );
+        }
+
+        return password;
     }
 
     /**
@@ -28,7 +39,16 @@ export default function SecretStorage(appName: string) {
      */
     function set(key: string, value: string): void {
         const entry = new Entry(appName, key);
-        entry.setPassword(value);
+
+        try {
+            entry.setPassword(value);
+        } catch (err) {
+            const _err = err as Error;
+
+            throw new Error(
+                `Failed to access the system keychain. Make sure your environment supports it: ${_err.message}`
+            );
+        }
     }
 
     /**
@@ -37,7 +57,16 @@ export default function SecretStorage(appName: string) {
      */
     function remove(key: string): void {
         const entry = new Entry(appName, key);
-        entry.deletePassword();
+
+        try {
+            entry.deletePassword();
+        } catch (err) {
+            const _err = err as Error;
+
+            throw new Error(
+                `Failed to access the system keychain. Make sure your environment supports it: ${_err.message}`
+            );
+        }
     }
 
     return {

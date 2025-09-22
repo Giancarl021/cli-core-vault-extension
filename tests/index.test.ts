@@ -57,7 +57,8 @@ describe('[UNIT] index', () => {
     test('Should throw if dataPath and tempPath are the same when building command addons', () => {
         const extension = VaultExtension({
             dataPath: '/same/path',
-            tempPath: '/same/path'
+            tempPath: '/same/path',
+            lazyInitialization: false
         });
 
         expect(extension).toMatchObject({
@@ -80,8 +81,37 @@ describe('[UNIT] index', () => {
         );
     });
 
+    test('Should throw if dataPath and tempPath are subdirectories of each other when building command addons', () => {
+        const extension = VaultExtension({
+            dataPath: '/same/path',
+            tempPath: '/same/path/temp',
+            lazyInitialization: false
+        });
+
+        expect(extension).toMatchObject({
+            name: 'vault',
+            buildCommandAddons: expect.any(Function),
+            interceptors: expect.any(Object)
+        });
+
+        expect(() =>
+            extension.buildCommandAddons!({
+                appName: 'test-app',
+                addons: {} as any,
+                helpers: {} as any,
+                logger: {
+                    debug() {}
+                } as any
+            })
+        ).toThrow(
+            'Data path and temporary path cannot be subdirectories of each other: /same/path and /same/path/temp'
+        );
+    });
+
     test('Should create data and temp directories when building command addons', () => {
-        const extension = VaultExtension();
+        const extension = VaultExtension({
+            lazyInitialization: false
+        });
 
         expect(extension).toMatchObject({
             name: 'vault',
@@ -99,17 +129,18 @@ describe('[UNIT] index', () => {
         });
 
         expect(
-            memfs.existsSync(resolve(homedir(), '.test-app', 'data.json'))
+            memfs.existsSync(resolve(homedir(), '.test-app', 'default'))
         ).toBe(true);
+
         expect(
-            memfs.existsSync(
-                resolve(tmpdir(), '.test-app', 'default', 'data.json')
-            )
+            memfs.existsSync(resolve(tmpdir(), '.test-app', 'default'))
         ).toBe(true);
     });
 
     test('Should use default paths when not provided', async () => {
-        const extension = VaultExtension();
+        const extension = VaultExtension({
+            lazyInitialization: false
+        });
 
         expect(extension).toMatchObject({
             name: 'vault',
@@ -127,12 +158,11 @@ describe('[UNIT] index', () => {
         }) as unknown as VaultExtensionAddons;
 
         expect(
-            memfs.existsSync(resolve(homedir(), '.test-app', 'data.json'))
+            memfs.existsSync(resolve(homedir(), '.test-app', 'default'))
         ).toBe(true);
+
         expect(
-            memfs.existsSync(
-                resolve(tmpdir(), '.test-app', 'default', 'data.json')
-            )
+            memfs.existsSync(resolve(tmpdir(), '.test-app', 'default'))
         ).toBe(true);
 
         await vault.data.set('key', 'value');
@@ -140,12 +170,12 @@ describe('[UNIT] index', () => {
         await expect(vault.data.get('nonExistentKey')).resolves.toBeUndefined();
         await expect(vault.data.listKeys()).resolves.toEqual(['key']);
 
-        await vault.temp.data.set('tempKey', 'tempValue');
-        await expect(vault.temp.data.get('tempKey')).resolves.toBe('tempValue');
+        await vault.temp.set('tempKey', 'tempValue');
+        await expect(vault.temp.get('tempKey')).resolves.toBe('tempValue');
         await expect(
-            vault.temp.data.get('nonExistentTempKey')
+            vault.temp.get('nonExistentTempKey')
         ).resolves.toBeUndefined();
-        await expect(vault.temp.data.listKeys()).resolves.toEqual(['tempKey']);
+        await expect(vault.temp.listKeys()).resolves.toEqual(['tempKey']);
 
         expect(vault.secrets.get('secretKey')).toBeNull();
         vault.secrets.set('secretKey', 'secretValue');
@@ -154,11 +184,12 @@ describe('[UNIT] index', () => {
         expect(vault.secrets.get('secretKey')).toBeNull();
     });
 
-    test('Should clean up temporary directory if destroyTempOnExit is true', () => {
+    test('Should clean up temporary directory if destroyTempOnExit is true', async () => {
         const extension = VaultExtension({
-            dataPath: '/data/path/data.json',
+            dataPath: '/data/path',
             tempPath: '/temp/path',
-            destroyTempOnExit: true
+            destroyTempOnExit: true,
+            lazyInitialization: false
         });
 
         expect(extension).toMatchObject({
@@ -176,7 +207,7 @@ describe('[UNIT] index', () => {
             } as any
         });
 
-        extension.interceptors!.beforeEnding!({
+        await extension.interceptors!.beforeEnding!({
             logger: {
                 debug() {}
             } as any
@@ -187,8 +218,9 @@ describe('[UNIT] index', () => {
 
     test('Should not clean up temporary directory if destroyTempOnExit is false', () => {
         const extension = VaultExtension({
-            dataPath: '/data/path/data.json',
+            dataPath: '/data/path',
             tempPath: '/temp/path',
+            lazyInitialization: false,
             destroyTempOnExit: false
         });
 
@@ -218,7 +250,7 @@ describe('[UNIT] index', () => {
 
     test('Should work with initial data', async () => {
         const extension = VaultExtension({
-            dataPath: '/data/path/data.json',
+            dataPath: '/data/path',
             tempPath: '/temp/path',
             initialData: { key: 'value' },
             tempInitialData: { tempKey: 'tempValue' }
@@ -246,13 +278,77 @@ describe('[UNIT] index', () => {
         await expect(vault.data.get('key')).resolves.toBeUndefined();
         await expect(vault.data.listKeys()).resolves.toEqual([]);
 
-        await expect(vault.temp.data.get('tempKey')).resolves.toBe('tempValue');
+        await expect(vault.temp.get('tempKey')).resolves.toBe('tempValue');
         await expect(
-            vault.temp.data.get('nonExistentTempKey')
+            vault.temp.get('nonExistentTempKey')
         ).resolves.toBeUndefined();
-        await expect(vault.temp.data.listKeys()).resolves.toEqual(['tempKey']);
-        await vault.temp.data.remove('tempKey');
-        await expect(vault.temp.data.get('tempKey')).resolves.toBeUndefined();
-        await expect(vault.temp.data.listKeys()).resolves.toEqual([]);
+        await expect(vault.temp.listKeys()).resolves.toEqual(['tempKey']);
+        await vault.temp.remove('tempKey');
+        await expect(vault.temp.get('tempKey')).resolves.toBeUndefined();
+        await expect(vault.temp.listKeys()).resolves.toEqual([]);
+    });
+
+    test('Should work with lazyInitialization set to true', async () => {
+        const extension = VaultExtension({
+            dataPath: '/data/path',
+            tempPath: '/temp/path',
+            initialData: { key: 'value' },
+            tempInitialData: { tempKey: 'tempValue' },
+            lazyInitialization: true
+        });
+
+        expect(extension).toMatchObject({
+            name: 'vault',
+            buildCommandAddons: expect.any(Function),
+            interceptors: expect.any(Object)
+        });
+
+        const vault = extension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {}
+            } as any
+        }) as unknown as VaultExtensionAddons;
+
+        // At this point, the storage engines should not be initialized yet.
+        expect(memfs.existsSync('/data/path')).toBe(false);
+        expect(memfs.existsSync('/temp/path')).toBe(false);
+
+        // Accessing the data storage should initialize it.
+        await expect(vault.data.get('key')).resolves.toBe('value');
+        expect(memfs.existsSync('/data/path')).toBe(true);
+
+        // Accessing the temp storage should initialize it.
+        await expect(vault.temp.get('tempKey')).resolves.toBe('tempValue');
+        expect(memfs.existsSync('/temp/path')).toBe(true);
+    });
+
+    test('Should work with no options provided', async () => {
+        const extension = VaultExtension();
+
+        expect(extension).toMatchObject({
+            name: 'vault',
+            buildCommandAddons: expect.any(Function),
+            interceptors: expect.any(Object)
+        });
+
+        const vault = extension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {}
+            } as any
+        }) as unknown as VaultExtensionAddons;
+
+        expect(
+            memfs.existsSync(resolve(homedir(), '.test-app', 'default'))
+        ).toBe(false);
+
+        expect(
+            memfs.existsSync(resolve(tmpdir(), '.test-app', 'default'))
+        ).toBe(false);
     });
 });

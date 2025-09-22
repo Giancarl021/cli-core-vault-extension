@@ -78,6 +78,15 @@ export default function VaultExtension(
             );
         }
 
+        if (
+            dataPath.startsWith(tempPath + '/') ||
+            tempPath.startsWith(dataPath + '/')
+        ) {
+            throw new Error(
+                `Data path and temporary path cannot be subdirectories of each other: ${dataPath} and ${tempPath}`
+            );
+        }
+
         const initialData = options.initialData ?? {};
         const tempInitialData = options.tempInitialData ?? {};
 
@@ -111,7 +120,7 @@ export default function VaultExtension(
             );
 
             logger.debug(
-                `Temporary directory created at ${context.temp.getRootPath()} with default workspace at ${context.temp.getWorkspacePath()}`
+                `Temporary directory created at ${context.options.tempPath}`
             );
 
             const objectStorage = ObjectStorage<VaultExtensionSchema>(
@@ -119,20 +128,16 @@ export default function VaultExtension(
                     context.options.dataPath,
                     context.options.lazyInitialization
                 ),
-                context.options.initialData ?? {}
+                context.options.initialData
             );
 
             logger.debug(
-                `Data storage initialized at ${objectStorage.storage.getWorkspacePath()}`
+                `Data storage initialized at ${context.options.dataPath}`
             );
 
             const tempObjectStorage = ObjectStorage<VaultExtensionTempSchema>(
                 context.temp,
-                context.options.tempInitialData ?? {}
-            );
-
-            logger.debug(
-                `Temporary data storage initialized at ${context.temp.getWorkspacePath()}`
+                context.options.tempInitialData
             );
 
             const secretStorage = SecretStorage(appName);
@@ -152,12 +157,13 @@ export default function VaultExtension(
             /**
              * Before the CLI Core application exits, clean up the temporary directory if configured to do so.
              */
-            beforeEnding(options) {
+            async beforeEnding(options) {
                 if (context.options.destroyTempOnExit) {
                     options.logger.debug(
                         `Destroying temporary directory at ${context.temp.getRootPath()}...`
                     );
-                    context.temp?.destroy();
+
+                    await context.temp?.destroy();
                 }
             }
         }

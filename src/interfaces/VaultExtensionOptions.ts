@@ -22,11 +22,11 @@ export default interface VaultExtensionOptions<
     /**
      * Initial data to populate the storage with if the storage is empty.
      */
-    initialData?: Schema;
+    initialData: Schema;
     /**
      * Initial data to populate the temporary storage with if the storage is empty.
      */
-    tempInitialData?: TempSchema;
+    tempInitialData: TempSchema;
     /**
      * Whether to destroy the temporary storage directory when the application exits.
      * Default is `false`.

@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 
 import { fs as memfs } from 'memfs';
 
@@ -8,7 +8,15 @@ jest.unstable_mockModule('fs/promises', () => memfs.promises);
 const { default: FileStorage } = await import(
     '../../src/services/FileStorage.js'
 );
+
 import ObjectStorage from '../../src/services/ObjectStorage.js';
+
+afterEach(() => {
+    const files = memfs.readdirSync('/');
+    for (const file of files) {
+        memfs.rmSync(`/${file}`, { recursive: true, force: true });
+    }
+});
 
 describe('[UNIT] services/ObjectStorage', () => {
     test('Should set and get nested properties correctly', async () => {
