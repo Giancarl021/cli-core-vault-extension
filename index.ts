@@ -35,11 +35,11 @@ interface Context {
     /**
      * Parsed options for the vault extension.
      */
-    options: VaultExtensionOptions;
+    options?: VaultExtensionOptions;
     /**
      * Temporary directory instance for the vault extension.
      */
-    temp: FileStorageInstance<VaultExtensionTempSchema>;
+    temp?: FileStorageInstance<VaultExtensionTempSchema>;
 }
 
 /**
@@ -55,10 +55,7 @@ export default function VaultExtension(
     /**
      * Assert that the context is always initialized before use.
      */
-    const context: Context = {
-        temp: null!,
-        options: null!
-    };
+    const context: Context = {};
 
     /**
      * Parse and validate the options provided to the extension.
@@ -158,10 +155,8 @@ export default function VaultExtension(
              * Before the CLI Core application exits, clean up the temporary directory if configured to do so.
              */
             async beforeEnding(options) {
-                if (context.options.destroyTempOnExit) {
-                    options.logger.debug(
-                        `Destroying temporary directory at ${context.temp.getRootPath()}...`
-                    );
+                if (context.options?.destroyTempOnExit) {
+                    options.logger.debug('Destroying temporary directory');
 
                     await context.temp?.destroy();
                 }
