@@ -11,25 +11,38 @@ jest.unstable_mockModule('fs', () => memfs);
 jest.unstable_mockModule('fs/promises', () => memfs.promises);
 
 jest.unstable_mockModule('@napi-rs/keyring', () => ({
-    Entry: class {
+    AsyncEntry: class {
         serviceName: string;
         account: string;
+        throws: boolean;
 
         constructor(serviceName: string, account: string) {
             if (!store[serviceName]) store[serviceName] = {};
             this.serviceName = serviceName;
             this.account = account;
+            this.throws = false;
         }
 
-        getPassword(): string | null {
+        async getPassword(): Promise<string | null> {
+            if (this.throws) {
+                throw new Error('Simulated keychain access error');
+            }
             return store[this.serviceName][this.account] || null;
         }
 
-        setPassword(value: string): void {
+        async setPassword(value: string): Promise<void> {
+            if (this.throws) {
+                throw new Error('Simulated keychain access error');
+            }
+
             store[this.serviceName][this.account] = value;
         }
 
-        deletePassword(): void {
+        async deletePassword(): Promise<void> {
+            if (this.throws) {
+                throw new Error('Simulated keychain access error');
+            }
+
             store[this.serviceName][this.account] = null;
         }
     }
@@ -177,11 +190,13 @@ describe('[UNIT] index', () => {
         ).resolves.toBeUndefined();
         await expect(vault.temp.listKeys()).resolves.toEqual(['tempKey']);
 
-        expect(vault.secrets.get('secretKey')).toBeUndefined();
-        vault.secrets.set('secretKey', 'secretValue');
-        expect(vault.secrets.get('secretKey')).toBe('secretValue');
-        vault.secrets.remove('secretKey');
-        expect(vault.secrets.get('secretKey')).toBeUndefined();
+        await expect(vault.secrets.get('secretKey')).resolves.toBeUndefined();
+        await vault.secrets.set('secretKey', 'secretValue');
+        await expect(vault.secrets.get('secretKey')).resolves.toBe(
+            'secretValue'
+        );
+        await vault.secrets.remove('secretKey');
+        await expect(vault.secrets.get('secretKey')).resolves.toBeUndefined();
     });
 
     test('Should clean up temporary directory if destroyTempOnExit is true', async () => {

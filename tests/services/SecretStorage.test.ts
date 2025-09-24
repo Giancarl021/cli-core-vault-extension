@@ -5,7 +5,7 @@ const store: Record<string, Record<string, string | null>> = {};
 let entryThrows = false;
 
 jest.unstable_mockModule('@napi-rs/keyring', () => ({
-    Entry: class {
+    AsyncEntry: class {
         serviceName: string;
         account: string;
         throws: boolean;
@@ -17,14 +17,14 @@ jest.unstable_mockModule('@napi-rs/keyring', () => ({
             this.throws = entryThrows;
         }
 
-        getPassword(): string | null {
+        async getPassword(): Promise<string | null> {
             if (this.throws) {
                 throw new Error('Simulated keychain access error');
             }
             return store[this.serviceName][this.account] || null;
         }
 
-        setPassword(value: string): void {
+        async setPassword(value: string): Promise<void> {
             if (this.throws) {
                 throw new Error('Simulated keychain access error');
             }
@@ -32,7 +32,7 @@ jest.unstable_mockModule('@napi-rs/keyring', () => ({
             store[this.serviceName][this.account] = value;
         }
 
-        deletePassword(): void {
+        async deletePassword(): Promise<void> {
             if (this.throws) {
                 throw new Error('Simulated keychain access error');
             }
@@ -56,11 +56,13 @@ describe('[UNIT] services/SecretStorage', () => {
     test('Should set, get, and remove a secret', async () => {
         const secretStorage = SecretStorage('my-app');
 
-        expect(secretStorage.get('my-secret')).toBeUndefined();
-        secretStorage.set('my-secret', 'secret-value');
-        expect(secretStorage.get('my-secret')).toBe('secret-value');
-        secretStorage.remove('my-secret');
-        expect(secretStorage.get('my-secret')).toBeUndefined();
+        await expect(secretStorage.get('my-secret')).resolves.toBeUndefined();
+        await secretStorage.set('my-secret', 'secret-value');
+        await expect(secretStorage.get('my-secret')).resolves.toBe(
+            'secret-value'
+        );
+        await secretStorage.remove('my-secret');
+        await expect(secretStorage.get('my-secret')).resolves.toBeUndefined();
     });
 
     test('Should handle errors when accessing the keychain', async () => {
@@ -68,13 +70,13 @@ describe('[UNIT] services/SecretStorage', () => {
 
         const secretStorage = SecretStorage('my-app');
 
-        expect(() => secretStorage.get('my-secret')).toThrow(
+        await expect(secretStorage.get('my-secret')).rejects.toThrow(
             /Failed to access the system keychain/
         );
-        expect(() => secretStorage.set('my-secret', 'value')).toThrow(
+        await expect(secretStorage.set('my-secret', 'value')).rejects.toThrow(
             /Failed to access the system keychain/
         );
-        expect(() => secretStorage.remove('my-secret')).toThrow(
+        await expect(secretStorage.remove('my-secret')).rejects.toThrow(
             /Failed to access the system keychain/
         );
 

@@ -6,7 +6,8 @@ import { homedir, tmpdir } from 'os';
 export default {
     workspace: {
         defaultKey: 'default',
-        dataPath: 'data.json'
+        dataPath: 'data.json',
+        secretPath: 'secrets.enc'
     },
     temp: {
         root: tmpdir()

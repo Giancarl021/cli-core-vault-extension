@@ -100,12 +100,12 @@ export default defineCommand(async function () {
     await this.extensions.vault.temp.set('sessions', sessions);
 
     // Adding a secret
-    this.extensions.vault.secrets.set('apiKey', 'my-secret-api-key');
+    await this.extensions.vault.secrets.set('apiKey', 'my-secret-api-key');
 
     // Retrieving data
     const storedUsers = await this.extensions.vault.data.get('users');
     const storedSessions = await this.extensions.vault.temp.get('sessions');
-    const apiKey = this.extensions.vault.secrets.get('apiKey');
+    const apiKey = await this.extensions.vault.secrets.get('apiKey');
 
     this.logger.json({
         storedUsers,
@@ -176,9 +176,9 @@ export default interface VaultExtensionAddons {
         ...typeof data;
     }
     secrets: {
-        get(key: string): string | undefined;
-        set(key: string, value: string): void;
-        remove(key: string): void;
+        get(key: string): Promise<string | undefined>;
+        set(key: string, value: string): Promise<void>;
+        remove(key: string): Promise<void>;
     };
 }
 ```
@@ -187,7 +187,7 @@ export default interface VaultExtensionAddons {
 
 It is noticeable that both `data` and `temp` have the same methods. The difference is that `data` is persistent storage, while `temp` is temporary storage that can be cleared or destroyed without affecting the persistent data.
 
-The `secrets` property, on the other hand, provides methods to securely store, retrieve, and remove sensitive information using the underlying OS's secure storage mechanisms. That is the reason why its methods are synchronous and no `storage` property is exposed.
+The `secrets` property, on the other hand, provides methods to securely store, retrieve, and remove sensitive information using the underlying OS's secure storage mechanisms, if available. If not available, it falls back to a encrypted file using the `CLI_CORE_VAULT_KEY` environment variable as the encryption key. If the environment variable is not set, it will throw an error at the start of the application.
 
 ## Interceptors
 
