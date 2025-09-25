@@ -1,8 +1,11 @@
 import { describe, expect, jest, test, afterEach } from '@jest/globals';
+import { fs as memfs } from 'memfs';
 
 const store: Record<string, Record<string, string | null>> = {};
-
 let entryThrows = false;
+
+jest.unstable_mockModule('fs', () => memfs);
+jest.unstable_mockModule('fs/promises', () => memfs.promises);
 
 jest.unstable_mockModule('@napi-rs/keyring', () => ({
     AsyncEntry: class {
@@ -47,6 +50,12 @@ const { default: SecretStorage } = await import(
 );
 
 afterEach(() => {
+    const files = memfs.readdirSync('/');
+
+    for (const file of files) {
+        memfs.rmSync(`/${file}`, { recursive: true, force: true });
+    }
+
     for (const key in store) {
         delete store[key];
     }
@@ -81,5 +90,39 @@ describe('[UNIT] services/SecretStorage', () => {
         );
 
         entryThrows = false;
+    });
+
+    test('Should work with filesystem based storage', async () => {
+        const secretStorage = SecretStorage('my-fs-app', {
+            filePath: '/tmp/secrets.json',
+            encryptionKey: 'test-encryption-key',
+            lazyInitialization: false,
+            useFilesystem: true
+        });
+
+        await expect(secretStorage.get('fs-secret')).resolves.toBeUndefined();
+        await secretStorage.set('fs-secret', 'fs-secret-value');
+        await expect(secretStorage.get('fs-secret')).resolves.toBe(
+            'fs-secret-value'
+        );
+        await secretStorage.remove('fs-secret');
+        await expect(secretStorage.get('fs-secret')).resolves.toBeUndefined();
+    });
+
+    test('Should initialize filesystem storage lazily', async () => {
+        const secretStorage = SecretStorage('my-lazy-fs-app', {
+            filePath: '/tmp/lazy-secrets.json',
+            encryptionKey: 'lazy-encryption-key',
+            lazyInitialization: true,
+            useFilesystem: true
+        });
+
+        await expect(secretStorage.get('fs-secret')).resolves.toBeUndefined();
+        await secretStorage.set('fs-secret', 'fs-secret-value');
+        await expect(secretStorage.get('fs-secret')).resolves.toBe(
+            'fs-secret-value'
+        );
+        await secretStorage.remove('fs-secret');
+        await expect(secretStorage.get('fs-secret')).resolves.toBeUndefined();
     });
 });

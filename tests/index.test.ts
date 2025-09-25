@@ -7,6 +7,8 @@ import type VaultExtensionAddons from '../src/interfaces/VaultExtensionAddons.js
 
 const store: Record<string, Record<string, string | null>> = {};
 
+const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
 jest.unstable_mockModule('fs', () => memfs);
 jest.unstable_mockModule('fs/promises', () => memfs.promises);
 
@@ -49,6 +51,7 @@ jest.unstable_mockModule('@napi-rs/keyring', () => ({
 }));
 
 afterEach(() => {
+    jest.clearAllMocks();
     for (const key in store) {
         delete store[key];
     }
@@ -365,5 +368,29 @@ describe('[UNIT] index', () => {
         expect(
             memfs.existsSync(resolve(tmpdir(), '.test-app', 'default'))
         ).toBe(false);
+    });
+
+    test('Should warn if the system keychain is not stable and using keychain mode', () => {
+        const unstableKeychainExtension = VaultExtension({
+            secretStorage: {
+                mode: 'keychain',
+                encryptionKeyEnvVar: 'TEST_ENV_VAR'
+            },
+            lazyInitialization: false
+        });
+
+        unstableKeychainExtension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {},
+                warning: consoleWarnSpy
+            } as any
+        });
+
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+            'The current system does not have a stable keychain. Please change the secret storage mode to `filesystem` or `auto` with a valid encryption key set in the TEST_ENV_VAR environment variable to ensure data safety and persistance.'
+        );
     });
 });

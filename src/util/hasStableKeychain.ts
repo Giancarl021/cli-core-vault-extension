@@ -5,7 +5,7 @@ import { execSync } from 'child_process';
  * Checks if the current platform has a stable keychain available.
  * @returns `true` if a stable keychain is available, `false` otherwise.
  */
-export function hasStableKeychain(): boolean {
+export default function hasStableKeychain(): boolean {
     const _platform = platform();
 
     if (_platform === 'win32') {

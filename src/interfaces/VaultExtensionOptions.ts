@@ -76,6 +76,6 @@ export default interface VaultExtensionOptions {
          * > **Warning:** Ensure that the encryption key provided via this environment variable is kept secret
          * and is not hard-coded in the application or exposed in version control.
          */
-        encryptionKeyEnvVar?: string;
+        encryptionKeyEnvVar: string;
     };
 }
