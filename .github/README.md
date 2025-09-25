@@ -11,6 +11,7 @@ Vault extension for CLI Core that provides persistent object storage capabilitie
 - [Installation](#installation)
 - [Usage](#usage)
 - [Options](#options)
+- [Secret Storage Modes](#secret-storage-modes)
 - [Command Addons](#command-addons)
 - [Interceptors](#interceptors)
 - [Contributing](#contributing)
@@ -100,12 +101,12 @@ export default defineCommand(async function () {
     await this.extensions.vault.temp.set('sessions', sessions);
 
     // Adding a secret
-    this.extensions.vault.secrets.set('apiKey', 'my-secret-api-key');
+    await this.extensions.vault.secrets.set('apiKey', 'my-secret-api-key');
 
     // Retrieving data
     const storedUsers = await this.extensions.vault.data.get('users');
     const storedSessions = await this.extensions.vault.temp.get('sessions');
-    const apiKey = this.extensions.vault.secrets.get('apiKey');
+    const apiKey = await this.extensions.vault.secrets.get('apiKey');
 
     this.logger.json({
         storedUsers,
@@ -135,14 +136,26 @@ Go back to [Summary](#summary)
 
 The Vault extension accepts the following options:
 
-|        Option        |                                    Type                                     | Description                                                                                                                                             |      Default value      |
-| :------------------: | :-------------------------------------------------------------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------: |
-| `lazyInitialization` |                                  `boolean`                                  | If `true`, the storage directories will be created only when accessed for the first time. Otherwise will create as soon as the extension is initialized |         `true`          |
-|      `dataPath`      |                                  `string`                                   | Custom path for storing persistent data. If not provided, defaults to a `.<app-name>` directory in the user's home directory.                           |  `<home>/.<app-name>`   |
-|      `tempPath`      |                                  `string`                                   | Custom path for storing temporary data. If not provided, defaults to a `.<app-name>` directory in the OS's temporary directory.                         | `<os-temp>/.<app-name>` |
-|    `initialData`     |     [`VaultExtensionSchema`](../src/interfaces/VaultExtensionSchema.ts)     | Initial data to populate the persistent storage if the storage file does not exist.                                                                     |          `{}`           |
-|  `tempInitialData`   | [`VaultExtensionTempSchema`](../src/interfaces/VaultExtensionTempSchema.ts) | Initial data to populate the temporary storage if the storage file does not exist.                                                                      |          `{}`           |
-| `destroyTempOnExit`  |                                  `boolean`                                  | If `true`, the temporary storage directory will be deleted when the application exits.                                                                  |         `true`          |
+|               Option                |                                    Type                                     | Description                                                                                                                                                                                      |      Default value      |
+| :---------------------------------: | :-------------------------------------------------------------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------: |
+|        `lazyInitialization`         |                                  `boolean`                                  | If `true`, the storage directories will be created only when accessed for the first time. Otherwise will create as soon as the extension is initialized                                          |         `true`          |
+|             `dataPath`              |                                  `string`                                   | Custom path for storing persistent data. If not provided, defaults to a `.<app-name>` directory in the user's home directory.                                                                    |  `<home>/.<app-name>`   |
+|             `tempPath`              |                                  `string`                                   | Custom path for storing temporary data. If not provided, defaults to a `.<app-name>` directory in the OS's temporary directory.                                                                  | `<os-temp>/.<app-name>` |
+|            `initialData`            |     [`VaultExtensionSchema`](../src/interfaces/VaultExtensionSchema.ts)     | Initial data to populate the persistent storage if the storage file does not exist.                                                                                                              |          `{}`           |
+|          `tempInitialData`          | [`VaultExtensionTempSchema`](../src/interfaces/VaultExtensionTempSchema.ts) | Initial data to populate the temporary storage if the storage file does not exist.                                                                                                               |          `{}`           |
+|         `destroyTempOnExit`         |                                  `boolean`                                  | If `true`, the temporary storage directory will be deleted when the application exits.                                                                                                           |         `true`          |
+|        `secretStorage.mode`         |                      `'auto' \| 'keychain' \| 'file'`                       | Mode of secret storage. See [Secret Storage Modes](#secret-storage-modes) for more details.                                                                                                      |        `'auto'`         |
+| `secretStorage.encryptionKeyEnvVar` |                                  `string`                                   | Name of the environment variable that contains the encryption key for file-based secret storage. Only used if `secretStorage.mode` is set to `'file'` or `'auto'` and keychain is not available. | `'CLI_CORE_VAULT_KEY'`  |
+
+## Secret Storage Modes
+
+Go back to [Summary](#summary)
+
+The Vault extension provides three modes for secret storage:
+
+- `keychain`: Uses the operating system's secure storage mechanisms (e.g., Keychain on macOS, Credential Locker on Windows, Secret Service on Linux). This is the most secure option but may not be available on all systems.
+- `filesystem`: Uses an encrypted file to store secrets. The encryption key must be provided through an environment variable (default is `CLI_CORE_VAULT_KEY`). This option is less secure than using the OS's secure storage but is more widely compatible.
+- `auto`: Automatically selects the best available option. It will use the OS's secure storage if available; otherwise, it will fall back to file-based storage.
 
 ## Command Addons
 
@@ -176,9 +189,9 @@ export default interface VaultExtensionAddons {
         ...typeof data;
     }
     secrets: {
-        get(key: string): string | undefined;
-        set(key: string, value: string): void;
-        remove(key: string): void;
+        get(key: string): Promise<string | undefined>;
+        set(key: string, value: string): Promise<void>;
+        remove(key: string): Promise<void>;
     };
 }
 ```
@@ -187,7 +200,7 @@ export default interface VaultExtensionAddons {
 
 It is noticeable that both `data` and `temp` have the same methods. The difference is that `data` is persistent storage, while `temp` is temporary storage that can be cleared or destroyed without affecting the persistent data.
 
-The `secrets` property, on the other hand, provides methods to securely store, retrieve, and remove sensitive information using the underlying OS's secure storage mechanisms. That is the reason why its methods are synchronous and no `storage` property is exposed.
+The `secrets` property, on the other hand, provides methods to securely store, retrieve, and remove sensitive information using the underlying OS's secure storage mechanisms, if available. If not available, it falls back to a encrypted file using the `CLI_CORE_VAULT_KEY` environment variable as the encryption key. If the environment variable is not set, it will throw an error at the start of the application.
 
 ## Interceptors
 

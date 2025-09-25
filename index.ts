@@ -3,7 +3,9 @@ import FileStorage, {
     FileStorageInstance
 } from './src/services/FileStorage.js';
 import ObjectStorage from './src/services/ObjectStorage.js';
-import SecretStorage from './src/services/SecretStorage.js';
+import SecretStorage, {
+    FallbackStorageOptions
+} from './src/services/SecretStorage.js';
 
 import { type CliCoreExtension } from '@giancarl021/cli-core';
 import type VaultExtensionAddons from './src/interfaces/VaultExtensionAddons.js';
@@ -12,6 +14,7 @@ import type {
     VaultExtensionSchema,
     VaultExtensionTempSchema
 } from './src/interfaces/VaultExtensionSchema.js';
+import hasStableKeychain from './src/util/hasStableKeychain.js';
 
 // Extend the CLI Core command interface to include vault extension addons.
 declare module '@giancarl021/cli-core' {
@@ -40,6 +43,14 @@ interface Context {
      * Temporary directory instance for the vault extension.
      */
     temp?: FileStorageInstance<VaultExtensionTempSchema>;
+    /**
+     * Whether the underlying OS keychain is stable and reliable.
+     */
+    stableKeychain: boolean;
+    /**
+     * Whether the filesystem encryption key is valid.
+     */
+    validFilesystemEncryptionKey?: boolean;
 }
 
 /**
@@ -55,7 +66,9 @@ export default function VaultExtension(
     /**
      * Assert that the context is always initialized before use.
      */
-    const context: Context = {};
+    const context: Context = {
+        stableKeychain: hasStableKeychain()
+    };
 
     /**
      * Parse and validate the options provided to the extension.
@@ -92,6 +105,12 @@ export default function VaultExtension(
             tempInitialData,
             dataPath,
             tempPath,
+            secretStorage: {
+                mode: options.secretStorage?.mode ?? 'auto',
+                encryptionKeyEnvVar:
+                    options.secretStorage?.encryptionKeyEnvVar ??
+                    'CLI_CORE_VAULT_KEY'
+            },
             lazyInitialization: options.lazyInitialization ?? true,
             destroyTempOnExit: options.destroyTempOnExit ?? false
         };
@@ -137,9 +156,43 @@ export default function VaultExtension(
                 context.options.tempInitialData
             );
 
-            const secretStorage = SecretStorage(appName);
+            const secretEnvVar =
+                process.env[
+                    context.options.secretStorage.encryptionKeyEnvVar
+                ] || '';
 
-            logger.debug('Secret storage initialized');
+            context.validFilesystemEncryptionKey = Boolean(secretEnvVar);
+            if (
+                !context.stableKeychain &&
+                context.options.secretStorage.mode === 'keychain'
+            ) {
+                logger.warning(
+                    `The current system does not have a stable keychain. Please change the secret storage mode to \`filesystem\` or \`auto\` with a valid encryption key set in the ${context.options.secretStorage.encryptionKeyEnvVar} environment variable to ensure data safety and persistance.`
+                );
+            }
+
+            let keychainOptions: FallbackStorageOptions | undefined = undefined;
+
+            if (
+                // Using filesystem storage either by explicit configuration
+                // or because the keychain is not stable.
+                context.options.secretStorage.mode !== 'keychain' &&
+                (context.options.secretStorage.mode === 'filesystem' ||
+                    !context.stableKeychain)
+            ) {
+                keychainOptions = {
+                    useFilesystem: true,
+                    encryptionKey: secretEnvVar,
+                    filePath: `${context.options.dataPath}/${constants.workspace.defaultKey}/${constants.workspace.secretPath}`,
+                    lazyInitialization: context.options.lazyInitialization
+                };
+            }
+
+            const secretStorage = SecretStorage(appName, keychainOptions);
+
+            logger.debug(
+                `Secret storage initialized using ${keychainOptions ? 'filesystem' : 'keychain'} mode`
+            );
 
             const addons: VaultExtensionAddons = {
                 data: objectStorage,
@@ -152,7 +205,43 @@ export default function VaultExtension(
         },
         interceptors: {
             /**
+             * Before running any command, ensure that if the OS keychain is not stable,
+             * a valid encryption key is provided for filesystem fallback storage, warning
+             * the user if not.
+             * @param options Options provided by CLI Core.
+             * @param route The current command route.
+             * @returns The command route, or an error route if validation fails.
+             */
+            async beforeRunning(options, route) {
+                if (!context.options) return route;
+
+                const forcedKeychain =
+                    context.options.secretStorage.mode === 'keychain';
+
+                const autoMode = context.options.secretStorage.mode === 'auto';
+
+                const envVarName =
+                    context.options.secretStorage.encryptionKeyEnvVar;
+
+                if (
+                    forcedKeychain ||
+                    (autoMode && context.stableKeychain) ||
+                    context.validFilesystemEncryptionKey
+                )
+                    return route;
+
+                const message = `${autoMode ? 'Your system does not have a stable keychain, using filesystem secret storage.' : 'No encryption key available'}. To avoid data loss set a encryption key for the filesystem secret storage by setting the ${options.logger.colors.yellowBright(envVarName)} environment variable.`;
+
+                return {
+                    ...route,
+                    status: 'error',
+                    result: new Error(message)
+                };
+            },
+            /**
              * Before the CLI Core application exits, clean up the temporary directory if configured to do so.
+             * @param options Options provided by CLI Core.
+             * @returns A promise that resolves when the cleanup is complete.
              */
             async beforeEnding(options) {
                 if (context.options?.destroyTempOnExit) {
