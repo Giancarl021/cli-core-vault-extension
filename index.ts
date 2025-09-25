@@ -162,7 +162,6 @@ export default function VaultExtension(
                 ] || '';
 
             context.validFilesystemEncryptionKey = Boolean(secretEnvVar);
-
             if (
                 !context.stableKeychain &&
                 context.options.secretStorage.mode === 'keychain'
@@ -172,19 +171,22 @@ export default function VaultExtension(
                 );
             }
 
-            const keychainOptions: FallbackStorageOptions | undefined =
-                context.options.secretStorage.mode === 'keychain'
-                    ? undefined
-                    : context.options.secretStorage.mode === 'filesystem' ||
-                        !context.stableKeychain
-                      ? {
-                            useFilesystem: true,
-                            encryptionKey: secretEnvVar,
-                            filePath: `${context.options.dataPath}/${constants.workspace.defaultKey}/${constants.workspace.secretPath}`,
-                            lazyInitialization:
-                                context.options.lazyInitialization
-                        }
-                      : undefined;
+            let keychainOptions: FallbackStorageOptions | undefined = undefined;
+
+            if (
+                // Using filesystem storage either by explicit configuration
+                // or because the keychain is not stable.
+                context.options.secretStorage.mode !== 'keychain' &&
+                (context.options.secretStorage.mode === 'filesystem' ||
+                    !context.stableKeychain)
+            ) {
+                keychainOptions = {
+                    useFilesystem: true,
+                    encryptionKey: secretEnvVar,
+                    filePath: `${context.options.dataPath}/${constants.workspace.defaultKey}/${constants.workspace.secretPath}`,
+                    lazyInitialization: context.options.lazyInitialization
+                };
+            }
 
             const secretStorage = SecretStorage(appName, keychainOptions);
 
@@ -211,20 +213,29 @@ export default function VaultExtension(
              * @returns The command route, or an error route if validation fails.
              */
             async beforeRunning(options, route) {
+                if (!context.options) return route;
+
+                const forcedKeychain =
+                    context.options.secretStorage.mode === 'keychain';
+
+                const autoMode = context.options.secretStorage.mode === 'auto';
+
+                const envVarName =
+                    context.options.secretStorage.encryptionKeyEnvVar;
+
                 if (
-                    (context.options?.secretStorage.mode ?? 'keychain') ===
-                        'keychain' ||
-                    context.stableKeychain ||
+                    forcedKeychain ||
+                    (autoMode && context.stableKeychain) ||
                     context.validFilesystemEncryptionKey
                 )
                     return route;
 
+                const message = `${autoMode ? 'Your system does not have a stable keychain, using filesystem secret storage.' : 'No encryption key available'}. To avoid data loss set a encryption key for the filesystem secret storage by setting the ${options.logger.colors.yellowBright(envVarName)} environment variable.`;
+
                 return {
                     ...route,
                     status: 'error',
-                    result: new Error(
-                        `${(context.options?.secretStorage.mode ?? 'auto') === 'auto' ? 'Your system does not have a stable keychain, using filesystem secret storage.' : 'No encryption key available'}. To avoid data loss set a encryption key for the filesystem secret storage by setting the ${options.logger.colors.yellowBright(context.options?.secretStorage.encryptionKeyEnvVar ?? 'CLI_CORE_VAULT_KEY')} environment variable.`
-                    )
+                    result: new Error(message)
                 };
             },
             /**

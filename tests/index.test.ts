@@ -1,4 +1,11 @@
-import { describe, expect, test, jest, afterEach } from '@jest/globals';
+import {
+    describe,
+    expect,
+    test,
+    jest,
+    afterEach,
+    beforeEach
+} from '@jest/globals';
 
 import { fs as memfs } from 'memfs';
 import { homedir, tmpdir } from 'os';
@@ -9,6 +16,14 @@ const store: Record<string, Record<string, string | null>> = {};
 
 const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
+let stableKeychain = true;
+let tmpEnv: NodeJS.ProcessEnv = { ...process.env };
+
+jest.unstable_mockModule('../src/util/hasStableKeychain.js', () => ({
+    default() {
+        return stableKeychain;
+    }
+}));
 jest.unstable_mockModule('fs', () => memfs);
 jest.unstable_mockModule('fs/promises', () => memfs.promises);
 
@@ -50,7 +65,14 @@ jest.unstable_mockModule('@napi-rs/keyring', () => ({
     }
 }));
 
+beforeEach(() => {
+    jest.resetModules();
+    tmpEnv = { ...process.env };
+});
+
 afterEach(() => {
+    stableKeychain = true;
+    process.env = { ...tmpEnv };
     jest.clearAllMocks();
     for (const key in store) {
         delete store[key];
@@ -266,6 +288,370 @@ describe('[UNIT] index', () => {
         expect(memfs.existsSync('/temp/path')).toBe(true);
     });
 
+    test('Should not re-route if using auto secret storage mode with a stable keychain and invalid encryption key', async () => {
+        const stableKeychainExtension = VaultExtension({
+            secretStorage: {
+                mode: 'auto',
+                encryptionKeyEnvVar: ''
+            },
+            lazyInitialization: false
+        });
+
+        stableKeychainExtension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {},
+                warning: consoleWarnSpy
+            } as any
+        });
+
+        await expect(() =>
+            stableKeychainExtension.interceptors!.beforeRunning!(
+                {
+                    logger: {
+                        colors: {
+                            yellowBright(str: string) {
+                                return str;
+                            }
+                        }
+                    }
+                } as any,
+                {
+                    commandArguments: [],
+                    commandChain: [],
+                    result: () => '',
+                    status: 'callback'
+                }
+            )
+        ).resolves.toMatchObject({
+            commandArguments: [],
+            commandChain: [],
+            result: expect.any(Function),
+            status: 'callback'
+        });
+    });
+
+    test('Should not re-route if using keychain secret storage mode with a stable keychain and invalid encryption key', async () => {
+        stableKeychain = true;
+        const stableKeychainExtension = VaultExtension({
+            secretStorage: {
+                mode: 'keychain',
+                encryptionKeyEnvVar: 'TEST_ENV_VAR'
+            },
+            lazyInitialization: false
+        });
+
+        stableKeychainExtension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {},
+                warning: consoleWarnSpy
+            } as any
+        });
+
+        await expect(() =>
+            stableKeychainExtension.interceptors!.beforeRunning!(
+                {
+                    logger: {
+                        colors: {
+                            yellowBright(str: string) {
+                                return str;
+                            }
+                        }
+                    }
+                } as any,
+                {
+                    commandArguments: [],
+                    commandChain: [],
+                    result: () => '',
+                    status: 'callback'
+                }
+            )
+        ).resolves.toMatchObject({
+            commandArguments: [],
+            commandChain: [],
+            result: expect.any(Function),
+            status: 'callback'
+        });
+    });
+
+    test('Should not re-route if using filesystem secret storage mode with a valid encryption key', async () => {
+        process.env.TEST_ENV_VAR = 'valid_key';
+
+        const stableKeychainExtension = VaultExtension({
+            secretStorage: {
+                mode: 'filesystem',
+                encryptionKeyEnvVar: 'TEST_ENV_VAR'
+            },
+            lazyInitialization: false
+        });
+
+        stableKeychainExtension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {},
+                warning: consoleWarnSpy
+            } as any
+        });
+
+        await expect(() =>
+            stableKeychainExtension.interceptors!.beforeRunning!(
+                {
+                    logger: {
+                        colors: {
+                            yellowBright(str: string) {
+                                return str;
+                            }
+                        }
+                    }
+                } as any,
+                {
+                    commandArguments: [],
+                    commandChain: [],
+                    result: () => '',
+                    status: 'callback'
+                }
+            )
+        ).resolves.toMatchObject({
+            commandArguments: [],
+            commandChain: [],
+            result: expect.any(Function),
+            status: 'callback'
+        });
+    });
+
+    test('Should not re-route if using keychain secret storage mode with an unstable keychain', async () => {
+        stableKeychain = false;
+        const unstableKeychainExtension = VaultExtension({
+            secretStorage: {
+                mode: 'keychain',
+                encryptionKeyEnvVar: 'TEST_ENV_VAR'
+            },
+            lazyInitialization: false
+        });
+
+        unstableKeychainExtension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {},
+                warning: consoleWarnSpy
+            } as any
+        });
+
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+            'The current system does not have a stable keychain. Please change the secret storage mode to `filesystem` or `auto` with a valid encryption key set in the TEST_ENV_VAR environment variable to ensure data safety and persistance.'
+        );
+
+        await expect(() =>
+            unstableKeychainExtension.interceptors!.beforeRunning!(
+                {
+                    logger: {
+                        colors: {
+                            yellowBright(str: string) {
+                                return str;
+                            }
+                        }
+                    }
+                } as any,
+                {
+                    commandArguments: [],
+                    commandChain: [],
+                    result: () => '',
+                    status: 'callback'
+                }
+            )
+        ).resolves.toMatchObject({
+            commandArguments: [],
+            commandChain: [],
+            result: expect.any(Function),
+            status: 'callback'
+        });
+    });
+
+    test('Should re-route if using auto secret storage mode with an unstable keychain and invalid encryption key', async () => {
+        stableKeychain = false;
+        const unstableKeychainExtension = VaultExtension({
+            secretStorage: {
+                mode: 'auto',
+                encryptionKeyEnvVar: 'TEST_ENV_VAR'
+            },
+            lazyInitialization: false
+        });
+
+        unstableKeychainExtension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {},
+                warning: consoleWarnSpy
+            } as any
+        });
+
+        await expect(() =>
+            unstableKeychainExtension.interceptors!.beforeRunning!(
+                {
+                    logger: {
+                        colors: {
+                            yellowBright(str: string) {
+                                return str;
+                            }
+                        }
+                    }
+                } as any,
+                {
+                    commandArguments: [],
+                    commandChain: [],
+                    result: () => '',
+                    status: 'callback'
+                }
+            )
+        ).resolves.toMatchObject({
+            commandArguments: [],
+            commandChain: [],
+            result: expect.any(Error),
+            status: 'error'
+        });
+    });
+
+    test('Should re-route if using auto secret storage mode with an invalid encryption key', async () => {
+        stableKeychain = false;
+        const stableKeychainExtension = VaultExtension({
+            secretStorage: {
+                mode: 'auto',
+                encryptionKeyEnvVar: 'TEST_ENV_VAR'
+            },
+            lazyInitialization: false
+        });
+
+        stableKeychainExtension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {},
+                warning: consoleWarnSpy
+            } as any
+        });
+
+        expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+        await expect(() =>
+            stableKeychainExtension.interceptors!.beforeRunning!(
+                {
+                    logger: {
+                        colors: {
+                            yellowBright(str: string) {
+                                return str;
+                            }
+                        }
+                    }
+                } as any,
+                {
+                    commandArguments: [],
+                    commandChain: [],
+                    result: () => '',
+                    status: 'callback'
+                }
+            )
+        ).resolves.toMatchObject({
+            commandArguments: [],
+            commandChain: [],
+            result: expect.any(Error),
+            status: 'error'
+        });
+    });
+
+    test('Should re-route if using filesystem secret storage mode with an invalid encryption key', async () => {
+        const stableKeychainExtension = VaultExtension({
+            secretStorage: {
+                mode: 'filesystem',
+                encryptionKeyEnvVar: 'TEST_ENV_VAR'
+            },
+            lazyInitialization: false
+        });
+
+        stableKeychainExtension.buildCommandAddons!({
+            appName: 'test-app',
+            addons: {} as any,
+            helpers: {} as any,
+            logger: {
+                debug() {},
+                warning: consoleWarnSpy
+            } as any
+        });
+
+        expect(consoleWarnSpy).not.toHaveBeenCalled();
+
+        await expect(() =>
+            stableKeychainExtension.interceptors!.beforeRunning!(
+                {
+                    logger: {
+                        colors: {
+                            yellowBright(str: string) {
+                                return str;
+                            }
+                        }
+                    }
+                } as any,
+                {
+                    commandArguments: [],
+                    commandChain: [],
+                    result: () => '',
+                    status: 'callback'
+                }
+            )
+        ).resolves.toMatchObject({
+            commandArguments: [],
+            commandChain: [],
+            result: expect.any(Error),
+            status: 'error'
+        });
+    });
+
+    test('Should bypass beforeRunning interceptor if the buildCommandAddons function was not called (e.g when a help description is triggered)', async () => {
+        const stableKeychainExtension = VaultExtension({
+            secretStorage: {
+                mode: 'filesystem',
+                encryptionKeyEnvVar: 'TEST_ENV_VAR'
+            },
+            lazyInitialization: false
+        });
+
+        expect(
+            stableKeychainExtension.interceptors!.beforeRunning!(
+                {
+                    logger: {
+                        colors: {
+                            yellowBright(str: string) {
+                                return str;
+                            }
+                        }
+                    }
+                } as any,
+                {
+                    commandArguments: [],
+                    commandChain: [],
+                    result: () => '',
+                    status: 'callback'
+                }
+            )
+        ).resolves.toMatchObject({
+            commandArguments: [],
+            commandChain: [],
+            result: expect.any(Function),
+            status: 'callback'
+        });
+    });
+
     test('Should work with initial data', async () => {
         const extension = VaultExtension({
             dataPath: '/data/path',
@@ -371,6 +757,7 @@ describe('[UNIT] index', () => {
     });
 
     test('Should warn if the system keychain is not stable and using keychain mode', () => {
+        stableKeychain = false;
         const unstableKeychainExtension = VaultExtension({
             secretStorage: {
                 mode: 'keychain',
