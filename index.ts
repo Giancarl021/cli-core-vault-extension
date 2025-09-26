@@ -4,8 +4,9 @@ import FileStorage, {
 } from './src/services/FileStorage.js';
 import ObjectStorage from './src/services/ObjectStorage.js';
 import SecretStorage, {
-    FallbackStorageOptions
+    type FallbackStorageOptions
 } from './src/services/SecretStorage.js';
+import hasStableKeychain from './src/util/hasStableKeychain.js';
 
 import { type CliCoreExtension } from '@giancarl021/cli-core';
 import type VaultExtensionAddons from './src/interfaces/VaultExtensionAddons.js';
@@ -14,7 +15,7 @@ import type {
     VaultExtensionSchema,
     VaultExtensionTempSchema
 } from './src/interfaces/VaultExtensionSchema.js';
-import hasStableKeychain from './src/util/hasStableKeychain.js';
+import type { PartialVaultExtensionOptions } from './src/interfaces/VaultExtensionOptions.js';
 
 // Extend the CLI Core command interface to include vault extension addons.
 declare module '@giancarl021/cli-core' {
@@ -29,28 +30,10 @@ declare module '@giancarl021/cli-core' {
     }
 }
 
-/**
- * Context for the vault extension.
- * It carries the options and temporary directory instance, to
- * allow multiple parts of the extension to access them.
- */
-interface Context {
-    /**
-     * Parsed options for the vault extension.
-     */
-    options?: VaultExtensionOptions;
-    /**
-     * Temporary directory instance for the vault extension.
-     */
-    temp?: FileStorageInstance<VaultExtensionTempSchema>;
-    /**
-     * Whether the underlying OS keychain is stable and reliable.
-     */
-    stableKeychain: boolean;
-    /**
-     * Whether the filesystem encryption key is valid.
-     */
-    validFilesystemEncryptionKey?: boolean;
+interface EnvVarResult {
+    name: string;
+    value: string;
+    valid: boolean;
 }
 
 /**
@@ -61,15 +44,8 @@ interface Context {
  * @returns A CLI Core extension object.
  */
 export default function VaultExtension(
-    options: Partial<VaultExtensionOptions> = {}
+    options: PartialVaultExtensionOptions = {}
 ): CliCoreExtension {
-    /**
-     * Assert that the context is always initialized before use.
-     */
-    const context: Context = {
-        stableKeychain: hasStableKeychain()
-    };
-
     /**
      * Parse and validate the options provided to the extension.
      * @param appName The name of the application using the extension.
@@ -116,6 +92,16 @@ export default function VaultExtension(
         };
     }
 
+    /**
+     * Get a environment variable and check if it is valid (non-empty).
+     * @param envVarName The name of the environment variable to check for the encryption key.
+     * @returns The value of the environment variable and its validity.
+     */
+    function _getEnvVar(envVarName: string): EnvVarResult {
+        const value = process.env[envVarName] || '';
+        return { value, valid: Boolean(value.trim()), name: envVarName };
+    }
+
     return {
         /**
          * Name of the extension.
@@ -129,45 +115,34 @@ export default function VaultExtension(
          * @returns Addons to be added to the CLI Core command.
          */
         buildCommandAddons: ({ appName, logger }) => {
-            context.options = _parseOptions(appName);
-            context.temp = FileStorage(
-                context.options.tempPath,
-                context.options.lazyInitialization
+            const _options = _parseOptions(appName);
+            const temp = FileStorage(
+                _options.tempPath,
+                _options.lazyInitialization
             );
 
-            logger.debug(
-                `Temporary directory created at ${context.options.tempPath}`
-            );
+            logger.debug(`Temporary directory created at ${_options.tempPath}`);
 
             const objectStorage = ObjectStorage<VaultExtensionSchema>(
-                FileStorage(
-                    context.options.dataPath,
-                    context.options.lazyInitialization
-                ),
-                context.options.initialData
+                FileStorage(_options.dataPath, _options.lazyInitialization),
+                _options.initialData
             );
 
-            logger.debug(
-                `Data storage initialized at ${context.options.dataPath}`
-            );
+            logger.debug(`Data storage initialized at ${_options.dataPath}`);
 
             const tempObjectStorage = ObjectStorage<VaultExtensionTempSchema>(
-                context.temp,
-                context.options.tempInitialData
+                temp,
+                _options.tempInitialData
             );
 
-            const secretEnvVar =
-                process.env[
-                    context.options.secretStorage.encryptionKeyEnvVar
-                ] || '';
+            const stableKeychain = hasStableKeychain();
+            const fileSystemEncryptionKey = _getEnvVar(
+                _options.secretStorage.encryptionKeyEnvVar
+            );
 
-            context.validFilesystemEncryptionKey = Boolean(secretEnvVar);
-            if (
-                !context.stableKeychain &&
-                context.options.secretStorage.mode === 'keychain'
-            ) {
+            if (!stableKeychain && _options.secretStorage.mode === 'keychain') {
                 logger.warning(
-                    `The current system does not have a stable keychain. Please change the secret storage mode to \`filesystem\` or \`auto\` with a valid encryption key set in the ${context.options.secretStorage.encryptionKeyEnvVar} environment variable to ensure data safety and persistance.`
+                    `The current system does not have a stable keychain. Please change the secret storage mode to \`filesystem\` or \`auto\` with a valid encryption key set in the ${fileSystemEncryptionKey.name} environment variable to ensure data safety and persistance.`
                 );
             }
 
@@ -176,15 +151,15 @@ export default function VaultExtension(
             if (
                 // Using filesystem storage either by explicit configuration
                 // or because the keychain is not stable.
-                context.options.secretStorage.mode !== 'keychain' &&
-                (context.options.secretStorage.mode === 'filesystem' ||
-                    !context.stableKeychain)
+                _options.secretStorage.mode !== 'keychain' &&
+                (_options.secretStorage.mode === 'filesystem' ||
+                    !stableKeychain)
             ) {
                 keychainOptions = {
                     useFilesystem: true,
-                    encryptionKey: secretEnvVar,
-                    filePath: `${context.options.dataPath}/${constants.workspace.defaultKey}/${constants.workspace.secretPath}`,
-                    lazyInitialization: context.options.lazyInitialization
+                    encryptionKey: fileSystemEncryptionKey.value,
+                    filePath: `${_options.dataPath}/${constants.workspace.defaultKey}/${constants.workspace.secretPath}`,
+                    lazyInitialization: _options.lazyInitialization
                 };
             }
 
@@ -213,24 +188,26 @@ export default function VaultExtension(
              * @returns The command route, or an error route if validation fails.
              */
             async beforeRunning(options, route) {
-                if (!context.options) return route;
+                const _options = _parseOptions(options.appName);
+                const stableKeychain = hasStableKeychain();
 
                 const forcedKeychain =
-                    context.options.secretStorage.mode === 'keychain';
+                    _options.secretStorage.mode === 'keychain';
 
-                const autoMode = context.options.secretStorage.mode === 'auto';
+                const autoMode = _options.secretStorage.mode === 'auto';
 
-                const envVarName =
-                    context.options.secretStorage.encryptionKeyEnvVar;
+                const fileSystemEncryptionKey = _getEnvVar(
+                    _options.secretStorage.encryptionKeyEnvVar
+                );
 
                 if (
                     forcedKeychain ||
-                    (autoMode && context.stableKeychain) ||
-                    context.validFilesystemEncryptionKey
+                    (autoMode && stableKeychain) ||
+                    fileSystemEncryptionKey.valid
                 )
                     return route;
 
-                const message = `${autoMode ? 'Your system does not have a stable keychain, using filesystem secret storage.' : 'No encryption key available'}. To avoid data loss set a encryption key for the filesystem secret storage by setting the ${options.logger.colors.yellowBright(envVarName)} environment variable.`;
+                const message = `${autoMode ? 'Your system does not have a stable keychain, using filesystem secret storage.' : 'No encryption key available'}. To avoid data loss set a encryption key for the filesystem secret storage by setting the ${options.logger.colors.yellowBright(_options.secretStorage.encryptionKeyEnvVar)} environment variable.`;
 
                 return {
                     ...route,
@@ -244,10 +221,16 @@ export default function VaultExtension(
              * @returns A promise that resolves when the cleanup is complete.
              */
             async beforeEnding(options) {
-                if (context.options?.destroyTempOnExit) {
+                const _options = _parseOptions(options.appName);
+                if (_options.destroyTempOnExit) {
                     options.logger.debug('Destroying temporary directory');
 
-                    await context.temp?.destroy();
+                    const temp = FileStorage(
+                        _options.tempPath,
+                        _options.lazyInitialization
+                    );
+
+                    await temp.destroy();
                 }
             }
         }

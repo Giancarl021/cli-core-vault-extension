@@ -307,7 +307,7 @@ describe('[UNIT] index', () => {
             } as any
         });
 
-        await expect(() =>
+        await expect(
             stableKeychainExtension.interceptors!.beforeRunning!(
                 {
                     logger: {
@@ -353,7 +353,7 @@ describe('[UNIT] index', () => {
             } as any
         });
 
-        await expect(() =>
+        await expect(
             stableKeychainExtension.interceptors!.beforeRunning!(
                 {
                     logger: {
@@ -400,7 +400,7 @@ describe('[UNIT] index', () => {
             } as any
         });
 
-        await expect(() =>
+        await expect(
             stableKeychainExtension.interceptors!.beforeRunning!(
                 {
                     logger: {
@@ -450,7 +450,7 @@ describe('[UNIT] index', () => {
             'The current system does not have a stable keychain. Please change the secret storage mode to `filesystem` or `auto` with a valid encryption key set in the TEST_ENV_VAR environment variable to ensure data safety and persistance.'
         );
 
-        await expect(() =>
+        await expect(
             unstableKeychainExtension.interceptors!.beforeRunning!(
                 {
                     logger: {
@@ -496,7 +496,7 @@ describe('[UNIT] index', () => {
             } as any
         });
 
-        await expect(() =>
+        await expect(
             unstableKeychainExtension.interceptors!.beforeRunning!(
                 {
                     logger: {
@@ -544,7 +544,7 @@ describe('[UNIT] index', () => {
 
         expect(consoleWarnSpy).not.toHaveBeenCalled();
 
-        await expect(() =>
+        await expect(
             stableKeychainExtension.interceptors!.beforeRunning!(
                 {
                     logger: {
@@ -591,7 +591,7 @@ describe('[UNIT] index', () => {
 
         expect(consoleWarnSpy).not.toHaveBeenCalled();
 
-        await expect(() =>
+        await expect(
             stableKeychainExtension.interceptors!.beforeRunning!(
                 {
                     logger: {
@@ -614,41 +614,6 @@ describe('[UNIT] index', () => {
             commandChain: [],
             result: expect.any(Error),
             status: 'error'
-        });
-    });
-
-    test('Should bypass beforeRunning interceptor if the buildCommandAddons function was not called (e.g when a help description is triggered)', async () => {
-        const stableKeychainExtension = VaultExtension({
-            secretStorage: {
-                mode: 'filesystem',
-                encryptionKeyEnvVar: 'TEST_ENV_VAR'
-            },
-            lazyInitialization: false
-        });
-
-        expect(
-            stableKeychainExtension.interceptors!.beforeRunning!(
-                {
-                    logger: {
-                        colors: {
-                            yellowBright(str: string) {
-                                return str;
-                            }
-                        }
-                    }
-                } as any,
-                {
-                    commandArguments: [],
-                    commandChain: [],
-                    result: () => '',
-                    status: 'callback'
-                }
-            )
-        ).resolves.toMatchObject({
-            commandArguments: [],
-            commandChain: [],
-            result: expect.any(Function),
-            status: 'callback'
         });
     });
 
@@ -738,7 +703,7 @@ describe('[UNIT] index', () => {
             interceptors: expect.any(Object)
         });
 
-        const vault = extension.buildCommandAddons!({
+        extension.buildCommandAddons!({
             appName: 'test-app',
             addons: {} as any,
             helpers: {} as any,

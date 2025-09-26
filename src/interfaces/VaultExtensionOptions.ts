@@ -79,3 +79,11 @@ export default interface VaultExtensionOptions {
         encryptionKeyEnvVar: string;
     };
 }
+
+/**
+ * A partial version of `VaultExtensionOptions` where all properties are optional,
+ * including nested properties within `secretStorage`.
+ */
+export type PartialVaultExtensionOptions = Partial<VaultExtensionOptions> & {
+    secretStorage?: Partial<VaultExtensionOptions['secretStorage']>;
+};
