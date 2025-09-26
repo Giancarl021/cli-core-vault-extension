@@ -207,7 +207,7 @@ export default function VaultExtension(
                 )
                     return route;
 
-                const message = `${autoMode ? 'Your system does not have a stable keychain, using filesystem secret storage.' : 'No encryption key available'}. To avoid data loss set a encryption key for the filesystem secret storage by setting the ${options.logger.colors.yellowBright(_options.secretStorage.encryptionKeyEnvVar)} environment variable.`;
+                const message = `${autoMode ? 'Your system does not have a stable keychain, using filesystem secret storage' : 'No encryption key available'}. To avoid data loss set a encryption key for the filesystem secret storage by setting the ${options.logger.colors.yellowBright(_options.secretStorage.encryptionKeyEnvVar)} environment variable.`;
 
                 return {
                     ...route,
